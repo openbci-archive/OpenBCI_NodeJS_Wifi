@@ -31,7 +31,7 @@ wifi.once('wifiShield', (obj) => {
   const shieldIp = obj.rinfo.address;
   wifi.connect(shieldIp)
     .then(() => {
-     return wifi.streamStart();
+     return wifi.syncNumberOfChannels();
     })
     .catch((err) => {
       console.log(err);

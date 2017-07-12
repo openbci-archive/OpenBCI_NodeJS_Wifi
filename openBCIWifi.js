@@ -175,8 +175,8 @@ Wifi.prototype.channelOn = function (channelNumber) {
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
     this._connectSocket(id, (err) => {
-      if (err) reject(err);
-      else resolve();
+      if (err) return reject(err);
+      else return resolve();
     });
   });
 };
@@ -354,22 +354,16 @@ Wifi.prototype.streamStop = function () {
 };
 
 Wifi.prototype.syncNumberOfChannels = function () {
-  return new Promise((resolve, reject) => {
-    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
-    const resFunc = (res) => {
-      console.log(res);
-      resolve(res);
-    };
-    this.on('res', resFunc);
-    this.get(this._localName,'/all',(err) => {
-      if (err) {
-        if (this.options.verbose) {
-          this.removeListener('res', resFunc);
-          reject(err);
-        }
-      }
+  return this.get(this._localName, '/all')
+    .then((res) => {
+      const info = JSON.parse(res);
+      this._numberOfChannels = info['num_channels'];
+      return Promise.resolve();
     })
-  });
+    .catch((err) => {
+      console.log(err);
+      return Promise.reject(err);
+    })
 };
 
 /**
@@ -562,7 +556,7 @@ Wifi.prototype.processResponse = function (res, cb) {
   });
 };
 
-Wifi.prototype.post = function (host, path, payload, cb) {
+Wifi.prototype._post = function (host, path, payload, cb) {
   const output = JSON.stringify(payload);
   const options = {
     host: host,
@@ -578,16 +572,16 @@ Wifi.prototype.post = function (host, path, payload, cb) {
   const req = http.request(options, (res) => {
     this.processResponse(res, (err) => {
       if (err) {
-        if (cb) cb(err);
+        if (cb) cb.call(this, err);
       } else {
-        if (cb) cb();
+        if (cb) cb.call(this);
       }
     });
   });
 
   req.once('error', (e) => {
     if (this.options.verbose) console.log(`problem with request: ${e.message}`);
-    if (cb) cb(e);
+    if (cb) cb.call(this, e);
   });
 
   // write data to request body
@@ -595,7 +589,27 @@ Wifi.prototype.post = function (host, path, payload, cb) {
   req.end();
 };
 
-Wifi.prototype.get = function (host, path, cb) {
+//TODO: Implement a function that allows us to async wait for res
+Wifi.prototype.post = function (host, path, payload) {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._get(host, path, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
+};
+
+
+Wifi.prototype._get = function (host, path, cb) {
   const options = {
     host: host,
     port: 80,
@@ -619,6 +633,24 @@ Wifi.prototype.get = function (host, path, cb) {
   });
 
   req.end();
+};
+
+Wifi.prototype.get = function (host, path) {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._get(host, path, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
 };
 
 module.exports = Wifi;

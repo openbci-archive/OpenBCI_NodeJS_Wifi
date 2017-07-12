@@ -10,11 +10,14 @@ const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
 const ip = require('ip');
 const Client = require('node-ssdp').Client;
+const net = require('net');
+const http = require('http');
+const bufferEqual = require('buffer-equal');
+const Buffer = require('safe-buffer').Buffer;
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
 const defaultChannelSettingsArray = k.channelSettingsArrayInit(k.OBCINumberOfChannelsDefault);
-
 
 const _options = {
   debug: false,
@@ -358,13 +361,13 @@ Wifi.prototype.streamStop = function () {
  */
 Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
-    if (this.shieldIp) {
+    if (this._localName) {
       if (!Buffer.isBuffer(data)) {
         data = new Buffer(data);
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
       this.post(
-        this.shieldIp,
+        this._localName,
         '/command',
         {'command': data.toString()},
         (err) => {
@@ -372,7 +375,7 @@ Wifi.prototype.write = function (data) {
           else resolve();
         });
     } else {
-      reject('Send characteristic not set, please call connect method');
+      reject('Local name is not set. Please call connect with ip address of wifi shield');
     }
   });
 };
@@ -402,6 +405,7 @@ Wifi.prototype._processBytes = function (data) {
   if (this.options.debug) obciDebug.debugBytes('<<', data);
   if (this.curOutputMode === wifiOutputModeRaw) {
     if (this.buffer) {
+      this.prevBuffer = this.buffer;
       this.buffer = new Buffer([this.buffer, data]);
     } else {
       this.buffer = data;
@@ -418,6 +422,13 @@ Wifi.prototype._processBytes = function (data) {
     _.forEach(samples, (sample) => {
       this.emit('sample', sample);
     });
+
+    // Prevent bad data from being carried through continuously
+    if (this.buffer) {
+      if (bufferEqual(this.buffer, this.prevBuffer)) {
+        this.buffer = null;
+      }
+    }
   }
 };
 
@@ -434,7 +445,7 @@ Wifi.prototype._connectSocket = function (shieldIP, cb) {
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
-    latency: "1000"
+    latency: "5000"
   }, cb);
 };
 
@@ -460,7 +471,9 @@ Wifi.prototype.wifiInitServer = function () {
     // streamJSON.on("data", (sample) => {
     //   console.log(sample);
     // });
-    socket.on('data', this._processBytes);
+    socket.on('data', (data) => {
+      this._processBytes(data);
+    });
     // socket.on('data', (data) => {
       // this._processBytes(data);
       // console.log(data.toString());

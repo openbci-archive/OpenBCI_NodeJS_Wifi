@@ -9,7 +9,7 @@
  *   do `npm install`
  *   then `npm start`
  */
-var debug = true; // Pretty print any bytes in and out... it's amazing...
+var debug = false; // Pretty print any bytes in and out... it's amazing...
 var verbose = true; // Adds verbosity to functions
 
 var Wifi = require('../../index').Wifi;
@@ -20,13 +20,19 @@ var wifi = new Wifi({
 });
 
 wifi.on('sample',(sample) => {
-  console.log(sample.sampleNumber);
+  try {
+    console.log(sample.channelData);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 wifi.once('wifiShield', (obj) => {
   const shieldIp = obj.rinfo.address;
   wifi.connect(shieldIp)
-    .then(wifi.streamStart)
+    .then(() => {
+     return wifi.streamStart();
+    })
     .catch((err) => {
       console.log(err);
     });
@@ -50,7 +56,13 @@ function exitHandler (options, err) {
   if (err) console.log(err.stack);
   if (options.exit) {
     if (verbose) console.log('exit');
-    // ourBoard.disconnect().catch(console.log);
+    if (wifi.isStreaming()) {
+      wifi.streamStop()
+        .then(() => {
+          console.log('stream stopped');
+          process.exit(0);
+        }).catch(console.log);
+    }
   }
 }
 

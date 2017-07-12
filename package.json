@@ -20,9 +20,10 @@
     "buffer-equal": "^1.0.0",
     "clone": "^2.0.0",
     "gaussian": "^1.0.0",
+    "ip": "^1.1.5",
     "lodash": "^4.16.6",
     "mathjs": "^3.3.0",
-    "openbci-utilities": "0.0.1",
+    "openbci-utilities": "0.0.2",
     "streamsearch": "^0.1.2"
   },
   "directories": {

@@ -3,11 +3,17 @@ const EventEmitter = require('events').EventEmitter;
 const _ = require('lodash');
 const util = require('util');
 // Local imports
-const obciUtils = require('openbci-utilities');
-const obciSample = obciUtils.Sample;
-const k = obciUtils.Constants;
-const obciDebug = obciUtils.Debug;
+const OpenBCIUtilities = require('openbci-utilities');
+const obciUtils = OpenBCIUtilities.Utilities;
+const k = OpenBCIUtilities.Constants;
+const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
+const ip = require('ip');
+
+const wifiOutputModeJSON = 'json';
+const wifiOutputModeRaw = 'raw';
+const defaultChannelSettingsArray = k.channelSettingsArrayInit(k.OBCINumberOfChannelsDefault);
+
 
 const _options = {
   debug: false,
@@ -104,39 +110,26 @@ function Wifi (options, callback) {
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
   this._connected = false;
-  this._decompressedSamples = new Array(3);
   this._droppedPacketCounter = 0;
   this._firstPacket = true;
-  this._lastDroppedPacket = null;
-  this._lastPacket = null;
   this._localName = null;
   this._multiPacketBuffer = null;
-  this._packetCounter = k.OBCIWifiByteId18Bit.max;
+  this._packetCounter = 0;
   this._peripheral = null;
-  this._rfduinoService = null;
-  this._receiveCharacteristic = null;
   this._scanning = false;
-  this._sendCharacteristic = null;
   this._streaming = false;
 
   /** Public Properties (keep alphabetical) */
   this.peripheralArray = [];
-  this.ganglionPeripheralArray = [];
+  this.wifiPeripheralArray = [];
   this.previousPeripheralArray = [];
   this.manualDisconnect = false;
+  this.curOutputMode = wifiOutputModeRaw;
 
   /** Initializations */
-  for (var i = 0; i < 3; i++) {
-    this._decompressedSamples[i] = [0, 0, 0, 0];
-  }
 
-  try {
-    noble = require('noble');
-    if (this.options.nobleAutoStart) this._nobleInit(); // It get's the noble going
-    if (callback) callback();
-  } catch (e) {
-    if (callback) callback(e);
-  }
+  this.wifiInitServer();
+  if (callback) callback();
 }
 
 // This allows us to use the emitter class freely outside of the module
@@ -177,20 +170,10 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
-    if (_.isString(id)) {
-      k.getPeripheralWithLocalName(this.ganglionPeripheralArray, id)
-        .then((p) => {
-          return this._nobleConnect(p);
-        })
-        .then(resolve)
-        .catch(reject);
-    } else if (_.isObject(id)) {
-      this._nobleConnect(id)
-        .then(resolve)
-        .catch(reject);
-    } else {
-      reject(k.OBCIErrorInvalidByteLength);
-    }
+    this.wifiConnectSocket(id, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
   });
 };
 
@@ -264,35 +247,11 @@ Wifi.prototype.getMutliPacketBuffer = function () {
 };
 
 /**
- * Call to start testing impedance.
- * @return {global.Promise|Promise}
- */
-Wifi.prototype.impedanceStart = function () {
-  return this.write(k.OBCIWifiImpedanceStart);
-};
-
-/**
- * Call to stop testing impedance.
- * @return {global.Promise|Promise}
- */
-Wifi.prototype.impedanceStop = function () {
-  return this.write(k.OBCIWifiImpedanceStop);
-};
-
-/**
  * @description Checks if the driver is connected to a board.
  * @returns {boolean} - True if connected.
  */
 Wifi.prototype.isConnected = function () {
   return this._connected;
-};
-
-/**
- * @description Checks if bluetooth is powered on.
- * @returns {boolean} - True if bluetooth is powered on.
- */
-Wifi.prototype.isNobleReady = function () {
-  return this._nobleReady();
 };
 
 /**
@@ -319,16 +278,7 @@ Wifi.prototype.isStreaming = function () {
  * @author AJ Keller (@pushtheworldllc)
  */
 Wifi.prototype.numberOfChannels = function () {
-  return k.OBCINumberOfChannelsWifi;
-};
-
-/**
- * @description To print out the register settings to the console
- * @returns {Promise.<T>|*}
- * @author AJ Keller (@pushtheworldllc)
- */
-Wifi.prototype.printRegisterSettings = function () {
-  return this.write(k.OBCIMiscQueryRegisterSettings);
+  return k.OBCINumberOfChannelsDefault;
 };
 
 /**
@@ -470,11 +420,12 @@ Wifi.prototype.syntheticDisable = function () {
  */
 Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
-    if (this._sendCharacteristic) {
+    if (this._peripheral) {
       if (!Buffer.isBuffer(data)) {
         data = new Buffer(data);
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
+      this.post()
       this._sendCharacteristic.write(data);
       resolve();
     } else {
@@ -486,43 +437,7 @@ Wifi.prototype.write = function (data) {
 // //////// //
 // PRIVATES //
 // //////// //
-/**
- * Builds a sample object from an array and sample number.
- * @param sampleNumber
- * @param rawData
- * @return {{sampleNumber: *}}
- * @private
- */
-Wifi.prototype._buildSample = function (sampleNumber, rawData) {
-  let sample = {
-    sampleNumber: sampleNumber,
-    timeStamp: Date.now()
-  };
-  if (this.options.sendCounts) {
-    sample['channelDataCounts'] = rawData;
-  } else {
-    sample['channelData'] = [];
-    for (let j = 0; j < k.OBCINumberOfChannelsWifi; j++) {
-      sample.channelData.push(rawData[j] * k.OBCIWifiScaleFactorPerCountVolts);
-    }
-  }
-  return sample;
-};
 
-/**
- * Utilize `receivedDeltas` to get actual count values.
- * @param receivedDeltas {Array} - An array of deltas
- *  of shape 2x4 (2 samples per packet and 4 channels per sample.)
- * @private
- */
-Wifi.prototype._decompressSamples = function (receivedDeltas) {
-  // add the delta to the previous value
-  for (let i = 1; i < 3; i++) {
-    for (let j = 0; j < 4; j++) {
-      this._decompressedSamples[i][j] = this._decompressedSamples[i - 1][j] - receivedDeltas[i - 1][j];
-    }
-  }
-};
 
 /**
  * @description Called once when for any reason the ble connection is no longer open.
@@ -566,228 +481,22 @@ Wifi.prototype._disconnected = function () {
 };
 
 /**
- * Call to destroy the noble event emitters.
- * @private
- */
-Wifi.prototype._nobleDestroy = function () {
-  if (noble)  {
-    noble.removeAllListeners(k.OBCINobleEmitterStateChange);
-    noble.removeAllListeners(k.OBCINobleEmitterDiscover);
-  }
-};
-
-Wifi.prototype._nobleConnect = function (peripheral) {
-  return new Promise((resolve, reject) => {
-    if (this.isConnected()) return reject('already connected!');
-
-    this._peripheral = peripheral;
-    this._localName = peripheral.advertisement.localName;
-    // if (_.contains(_peripheral.advertisement.localName, rfduino.localNamePrefix)) {
-    // TODO: slice first 8 of localName and see if that is ganglion
-    // here is where we can capture the advertisement data from the rfduino and check to make sure its ours
-    if (this.options.verbose) console.log('Device is advertising \'' + this._peripheral.advertisement.localName + '\' service.');
-    // TODO: filter based on advertising name ie make sure we are looking for the right thing
-    // if (this.options.verbose) console.log("serviceUUID: " + this._peripheral.advertisement.serviceUuids);
-
-    this._peripheral.on(k.OBCINobleEmitterPeripheralConnect, () => {
-      // if (this.options.verbose) console.log("got connect event");
-      this._peripheral.discoverServices();
-      if (this.isSearching()) this._nobleScanStop();
-    });
-
-    this._peripheral.on(k.OBCINobleEmitterPeripheralDisconnect, () => {
-      if (this.options.verbose) console.log('Peripheral disconnected');
-      this._disconnected();
-    });
-
-    this._peripheral.on(k.OBCINobleEmitterPeripheralServicesDiscover, (services) => {
-
-      for (var i = 0; i < services.length; i++) {
-        if (services[i].uuid === k.SimbleeUuidService) {
-          this._rfduinoService = services[i];
-          // if (this.options.verbose) console.log("Found simblee Service");
-          break;
-        }
-      }
-
-      if (!this._rfduinoService) {
-        reject('Couldn\'t find the simblee service.');
-      }
-
-      this._rfduinoService.once(k.OBCINobleEmitterServiceCharacteristicsDiscover, (characteristics) => {
-        if (this.options.verbose) console.log('Discovered ' + characteristics.length + ' service characteristics');
-        for (var i = 0; i < characteristics.length; i++) {
-          // console.log(characteristics[i].uuid);
-          if (characteristics[i].uuid === k.SimbleeUuidReceive) {
-            if (this.options.verbose) console.log("Found receiveCharacteristicUUID");
-            this._receiveCharacteristic = characteristics[i];
-          }
-          if (characteristics[i].uuid === k.SimbleeUuidSend) {
-            if (this.options.verbose) console.log("Found sendCharacteristicUUID");
-            this._sendCharacteristic = characteristics[i];
-          }
-        }
-
-        if (this._receiveCharacteristic && this._sendCharacteristic) {
-          this._receiveCharacteristic.on(k.OBCINobleEmitterServiceRead, (data) => {
-            // TODO: handle all the data, both streaming and not
-            this._processBytes(data);
-          });
-
-          // if (this.options.verbose) console.log('Subscribing for data notifications');
-          this._receiveCharacteristic.notify(true);
-
-          this._connected = true;
-          this.emit(k.OBCIEmitterReady);
-          resolve();
-        } else {
-          reject('unable to set both receive and send characteristics!');
-        }
-      });
-
-      this._rfduinoService.discoverCharacteristics();
-    });
-
-    // if (this.options.verbose) console.log("Calling connect");
-
-    this._peripheral.connect((err) => {
-      if (err) {
-        if (this.options.verbose) console.log(`Unable to connect with error: ${err}`);
-        this._disconnected();
-        reject(err);
-      }
-    });
-  });
-};
-
-/**
- * Call to add the noble event listeners.
- * @private
- */
-Wifi.prototype._nobleInit = function () {
-  noble.on(k.OBCINobleEmitterStateChange, (state) => {
-    // TODO: send state change error to gui
-
-    // If the peripheral array is empty, do a scan to fill it.
-    if (state === k.OBCINobleStatePoweredOn) {
-      if (this.options.verbose) console.log('Bluetooth powered on');
-      this.emit(k.OBCIEmitterBlePoweredUp);
-      if (this.options.nobleScanOnPowerOn) {
-        this._nobleScanStart().catch((err) => {
-          console.log(err);
-        });
-      }
-      if (this.peripheralArray.length === 0) {
-      }
-    } else {
-      if (this.isSearching()) {
-        this._nobleScanStop().catch((err) => {
-          console.log(err);
-        });
-      }
-    }
-  });
-
-  noble.on(k.OBCINobleEmitterDiscover, this._nobleOnDeviceDiscoveredCallback.bind(this));
-};
-
-/**
- * Event driven function called when a new device is discovered while scanning.
- * @param peripheral {Object} Peripheral object from noble.
- * @private
- */
-Wifi.prototype._nobleOnDeviceDiscoveredCallback = function (peripheral) {
-  // if(this.options.verbose) console.log(peripheral.advertisement);
-  this.peripheralArray.push(peripheral);
-  if (k.isPeripheralWifi(peripheral)) {
-    if (this.options.verbose) console.log('Found ganglion!');
-    if (_.isUndefined(_.find(this.ganglionPeripheralArray,
-        (p) => {
-          return p.advertisement.localName === peripheral.advertisement.localName;
-        }))) {
-      this.ganglionPeripheralArray.push(peripheral);
-    }
-    this.emit(k.OBCIEmitterWifiFound, peripheral);
-  }
-};
-
-Wifi.prototype._nobleReady = function () {
-  return noble.state === k.OBCINobleStatePoweredOn;
-};
-
-/**
- * Call to perform a scan to get a list of peripherals.
- * @returns {global.Promise|Promise}
- * @private
- */
-Wifi.prototype._nobleScanStart = function () {
-  return new Promise((resolve, reject) => {
-    if (this.isSearching()) return reject(k.OBCIErrorNobleAlreadyScanning);
-    if (!this._nobleReady()) return reject(k.OBCIErrorNobleNotInPoweredOnState);
-
-    this.peripheralArray = [];
-    noble.once(k.OBCINobleEmitterScanStart, () => {
-      if (this.options.verbose) console.log('Scan started');
-      this._scanning = true;
-      this.emit(k.OBCINobleEmitterScanStart);
-      resolve();
-    });
-    // Only look so simblee ble devices and allow duplicates (multiple ganglions)
-    // noble.startScanning([k.SimbleeUuidService], true);
-    noble.startScanning([], false);
-  });
-};
-
-/**
- * Stop an active scan
- * @return {global.Promise|Promise}
- * @private
- */
-Wifi.prototype._nobleScanStop = function () {
-  return new Promise((resolve, reject) => {
-    if (!this.isSearching()) return reject(k.OBCIErrorNobleNotAlreadyScanning);
-    if (this.options.verbose) console.log(`Stopping scan`);
-
-    noble.once(k.OBCINobleEmitterScanStop, () => {
-      this._scanning = false;
-      this.emit(k.OBCINobleEmitterScanStop);
-      if (this.options.verbose) console.log('Scan stopped');
-      resolve();
-    });
-    // Stop noble from scanning
-    noble.stopScanning();
-  });
-};
-
-/**
  * Route incoming data to proper functions
  * @param data {Buffer} - Data buffer from noble Wifi.
  * @private
  */
 Wifi.prototype._processBytes = function (data) {
   if (this.options.debug) obciDebug.debugBytes('<<', data);
-  this.lastPacket = data;
-  let byteId = parseInt(data[0]);
-  if (byteId <= k.OBCIWifiByteId19Bit.max) {
-    this._processProcessSampleData(data);
-  } else {
-    switch (byteId) {
-      case k.OBCIWifiByteIdMultiPacket:
-        this._processMultiBytePacket(data);
-        break;
-      case k.OBCIWifiByteIdMultiPacketStop:
-        this._processMultiBytePacketStop(data);
-        break;
-      case k.OBCIWifiByteIdImpedanceChannel1:
-      case k.OBCIWifiByteIdImpedanceChannel2:
-      case k.OBCIWifiByteIdImpedanceChannel3:
-      case k.OBCIWifiByteIdImpedanceChannel4:
-      case k.OBCIWifiByteIdImpedanceChannelReference:
-        this._processImpedanceData(data);
-        break;
-      default:
-        this._processOtherData(data);
+  if (this.curOutputMode === wifiOutputModeRaw) {
+    if (this.buffer) {
+      this.buffer = new Buffer([this.buffer, data]);
+    } else {
+      this.buffer = data;
     }
+    const output = obciUtils.extractRawDataPackets(this.buffer);
+
+    this.buffer = output.buffer;
+    const samples = obciUtils.transformRawDataPacketsToSample(output.rawDataPackets)
   }
 };
 
@@ -803,7 +512,7 @@ Wifi.prototype._processCompressedData = function (data) {
 
   // Decompress the buffer into array
   if (this._packetCounter <= k.OBCIWifiByteId18Bit.max) {
-    this._decompressSamples(obciSample.decompressDeltas18Bit(data.slice(k.OBCIWifiPacket18Bit.dataStart, k.OBCIWifiPacket18Bit.dataStop)));
+    this._decompressSamples(obciUtils.decompressDeltas18Bit(data.slice(k.OBCIWifiPacket18Bit.dataStart, k.OBCIWifiPacket18Bit.dataStop)));
     switch (this._packetCounter % 10) {
       case k.OBCIWifiAccelAxisX:
         this._accelArray[0] = this.options.sendCounts ? data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) : data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) * k.OBCIWifiAccelScaleFactor;
@@ -825,7 +534,7 @@ Wifi.prototype._processCompressedData = function (data) {
     this.emit(k.OBCIEmitterSample, sample2);
 
   } else {
-    this._decompressSamples(obciSample.decompressDeltas19Bit(data.slice(k.OBCIWifiPacket19Bit.dataStart, k.OBCIWifiPacket19Bit.dataStop)));
+    this._decompressSamples(obciUtils.decompressDeltas19Bit(data.slice(k.OBCIWifiPacket19Bit.dataStart, k.OBCIWifiPacket19Bit.dataStop)));
 
     const sample1 = this._buildSample((this._packetCounter - 100) * 2 - 1, this._decompressedSamples[1]);
     this.emit(k.OBCIEmitterSample, sample1);
@@ -1015,22 +724,22 @@ Wifi.prototype._processUncompressedData = function (data) {
   this.emit(k.OBCIEmitterSample, newSample);
 };
 
-OpenBCIBoard.prototype.wifiConnectSocket = function (shieldIP, cb) {
+Wifi.prototype.wifiConnectSocket = function (shieldIP, cb) {
   this.curParsingMode = k.OBCIParsingNormal;
-  this.wifiPost(shieldIP, '/tcp', {
+  this.post(shieldIP, '/tcp', {
     ip: ip.address(),
-    output: "json",
+    output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
-    delimiter: "\r\n",
-    latency: "50000"
+    delimiter: false,
+    latency: "1000"
   }, cb);
 };
 
-OpenBCIBoard.prototype.wifiClientCreate = function () {
+Wifi.prototype.wifiClientCreate = function () {
   this.wifiClient = new ssdp({});
 };
 
-OpenBCIBoard.prototype.wifiDestroy = function () {
+Wifi.prototype.wifiDestroy = function () {
   this.wifiServer = null;
   if (this.wifiClient) {
     this.wifiClient.stop();
@@ -1038,7 +747,7 @@ OpenBCIBoard.prototype.wifiDestroy = function () {
   this.wifiClient = null;
 };
 
-OpenBCIBoard.prototype.wifiFindShieldsStart = function (timeout, attempts) {
+Wifi.prototype.wifiFindShieldsStart = function (timeout, attempts) {
   this.wifiClient = new ssdp({});
   let attemptCounter = 0;
   let _attempts = attempts || 2;
@@ -1065,16 +774,16 @@ OpenBCIBoard.prototype.wifiFindShieldsStart = function (timeout, attempts) {
   this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
 };
 
-OpenBCIBoard.prototype.wifiFindShieldsStop = function () {
+Wifi.prototype.wifiFindShieldsStop = function () {
   if (this.wifiClient) this.wifiClient.stop();
   if (this.ssdpTimeout) clearTimeout(this.ssdpTimeout);
 };
 
-OpenBCIBoard.prototype.wifiGetLocalPort = function () {
+Wifi.prototype.wifiGetLocalPort = function () {
   return this.wifiServer.address().port;
 };
 
-OpenBCIBoard.prototype.wifiInitServer = function () {
+Wifi.prototype.wifiInitServer = function () {
   let persistentBuffer = null;
   const delimBuf = new Buffer("\r\n");
   this.wifiServer = net.createServer((socket) => {

@@ -9,6 +9,7 @@ const k = OpenBCIUtilities.Constants;
 const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
 const ip = require('ip');
+const Client = require('node-ssdp').Client;
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
@@ -170,7 +171,7 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
-    this.wifiConnectSocket(id, (err) => {
+    this._connectSocket(id, (err) => {
       if (err) reject(err);
       else resolve();
     });
@@ -178,56 +179,15 @@ Wifi.prototype.connect = function (id) {
 };
 
 /**
- * Destroys the noble!
- */
-Wifi.prototype.destroyNoble = function () {
-  this._nobleDestroy();
-};
-
-/**
- * Destroys the multi packet buffer.
- */
-Wifi.prototype.destroyMultiPacketBuffer = function () {
-  this._multiPacketBuffer = null;
-};
-
-/**
  * @description Closes the connection to the board. Waits for stop streaming command to
  *  be sent if currently streaming.
- * @param stopStreaming {Boolean} (optional) - True if you want to stop streaming before disconnecting.
  * @returns {Promise} - fulfilled by a successful close, rejected otherwise.
  * @author AJ Keller (@pushtheworldllc)
  */
-Wifi.prototype.disconnect = function (stopStreaming) {
-  // no need for timeout here; streamStop already performs a delay
-  return Promise.resolve()
-    .then(() => {
-      if (stopStreaming) {
-        if (this.isStreaming()) {
-          if (this.options.verbose) console.log('stop streaming');
-          return this.streamStop();
-        }
-      }
-      return Promise.resolve();
-    })
-    .then(() => {
-      return new Promise((resolve, reject) => {
-        // serial emitting 'close' will call _disconnected
-        if (this._peripheral) {
-          this._peripheral.disconnect((err) => {
-            if (err) {
-              this._disconnected();
-              reject(err);
-            } else {
-              this._disconnected();
-              resolve();
-            }
-          });
-        } else {
-          reject('no peripheral to disconnect');
-        }
-      });
-    });
+Wifi.prototype.disconnect = function () {
+  this._disconnected();
+  return Promise.resolve();
+
 };
 
 /**
@@ -297,28 +257,35 @@ Wifi.prototype.sampleRate = function () {
 /**
  * @description List available peripherals so the user can choose a device when not
  *              automatically found.
- * @param `maxSearchTime` {Number} - The amount of time to spend searching. (Default is 20 seconds)
  * @returns {Promise} - If scan was started
  */
-Wifi.prototype.searchStart = function (maxSearchTime) {
-  const searchTime = maxSearchTime || k.OBCIWifiBleSearchTime;
-
-  return new Promise((resolve, reject) => {
-    this._searchTimeout = setTimeout(() => {
-      this._nobleScanStop().catch(reject);
-      reject('Timeout: Unable to find Wifi');
-    }, searchTime);
-
-    this._nobleScanStart()
-      .then(() => {
-        resolve();
-      })
-      .catch((err) => {
-        if (err !== k.OBCIErrorNobleAlreadyScanning) { // If it's already scanning
-          clearTimeout(this._searchTimeout);
-          reject(err);
-        }
-      });
+Wifi.prototype.searchStart = function () {
+  return new Promise((resolve) => {
+    this._scanning = true;
+    this.wifiClient = new Client({});
+    let attemptCounter = 0;
+    let _attempts = 4; // Retry 4 times. Sometimes ssdp stalls out...
+    let _timeout = 3 * 1000; // Retry every 3 seconds
+    let timeoutFunc = () => {
+      if (attemptCounter < _attempts) {
+        this.wifiClient.stop();
+        this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
+        attemptCounter++;
+        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${_attempts}`);
+        this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+      } else {
+        if (this.options.verbose) console.log('SSDP: stopping because out of attempts');
+        this.searchStop();
+      }
+    };
+    this.wifiClient.on('response', (headers, code, rinfo) => {
+      if (this.options.verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
+      this.emit('wifiShield', { headers, code, rinfo });
+    });
+    // Search for just the wifi shield
+    this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
+    this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+    resolve();
   });
 };
 
@@ -327,7 +294,10 @@ Wifi.prototype.searchStart = function (maxSearchTime) {
  * @return {global.Promise|Promise}
  */
 Wifi.prototype.searchStop = function () {
-  return this._nobleScanStop();
+  if (this.wifiClient) this.wifiClient.stop();
+  if (this.ssdpTimeout) clearTimeout(this.ssdpTimeout);
+  this._scanning = false;
+  return Promise.resolve();
 };
 
 /**
@@ -381,38 +351,6 @@ Wifi.prototype.streamStop = function () {
 };
 
 /**
- * @description Puts the board in synthetic data generation mode. Must call streamStart still.
- * @returns {Promise} indicating if the signal was able to be sent.
- * @author AJ Keller (@pushtheworldllc)
- */
-Wifi.prototype.syntheticEnable = function () {
-  return new Promise((resolve, reject) => {
-    this.write(k.OBCIWifiSyntheticDataEnable)
-      .then(() => {
-        if (this.options.verbose) console.log('Enabled synthetic data mode.');
-        resolve();
-      })
-      .catch(reject);
-  });
-};
-
-/**
- * @description Takes the board out of synthetic data generation mode. Must call streamStart still.
- * @returns {Promise} - fulfilled if the command was sent.
- * @author AJ Keller (@pushtheworldllc)
- */
-Wifi.prototype.syntheticDisable = function () {
-  return new Promise((resolve, reject) => {
-    this.write(k.OBCIWifiSyntheticDataDisable)
-      .then(() => {
-        if (this.options.verbose) console.log('Disabled synthetic data mode.');
-        resolve();
-      })
-      .catch(reject);
-  });
-};
-
-/**
  * @description Used to send data to the board.
  * @param data {Array | Buffer | Number | String} - The data to write out
  * @returns {Promise} - fulfilled if command was able to be sent
@@ -420,14 +358,19 @@ Wifi.prototype.syntheticDisable = function () {
  */
 Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
-    if (this._peripheral) {
+    if (this.shieldIp) {
       if (!Buffer.isBuffer(data)) {
         data = new Buffer(data);
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post()
-      this._sendCharacteristic.write(data);
-      resolve();
+      this.post(
+        this.shieldIp,
+        '/command',
+        {'command': data.toString()},
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
     } else {
       reject('Send characteristic not set, please call connect method');
     }
@@ -437,8 +380,6 @@ Wifi.prototype.write = function (data) {
 // //////// //
 // PRIVATES //
 // //////// //
-
-
 /**
  * @description Called once when for any reason the ble connection is no longer open.
  * @private
@@ -446,34 +387,6 @@ Wifi.prototype.write = function (data) {
 Wifi.prototype._disconnected = function () {
   this._streaming = false;
   this._connected = false;
-
-  // Clean up _noble
-  // TODO: Figure out how to fire function on process ending from inside module
-  // noble.removeListener('discover', this._nobleOnDeviceDiscoveredCallback);
-
-  if (this._receiveCharacteristic) {
-    this._receiveCharacteristic.removeAllListeners(k.OBCINobleEmitterServiceRead);
-  }
-
-  this._receiveCharacteristic = null;
-
-  if (this._rfduinoService) {
-    this._rfduinoService.removeAllListeners(k.OBCINobleEmitterServiceCharacteristicsDiscover);
-  }
-
-  this._rfduinoService = null;
-
-  if (this._peripheral) {
-    this._peripheral.removeAllListeners(k.OBCINobleEmitterPeripheralConnect);
-    this._peripheral.removeAllListeners(k.OBCINobleEmitterPeripheralDisconnect);
-    this._peripheral.removeAllListeners(k.OBCINobleEmitterPeripheralServicesDiscover);
-  }
-
-  this._peripheral = null;
-
-  if (!this.manualDisconnect) {
-    // this.autoReconnect();
-  }
 
   if (this.options.verbose) console.log(`Private disconnect clean up`);
 
@@ -496,236 +409,26 @@ Wifi.prototype._processBytes = function (data) {
     const output = obciUtils.extractRawDataPackets(this.buffer);
 
     this.buffer = output.buffer;
-    const samples = obciUtils.transformRawDataPacketsToSample(output.rawDataPackets)
+    const samples = obciUtils.transformRawDataPacketsToSample({
+      rawDataPackets: output.rawDataPackets,
+      gains: defaultChannelSettingsArray,
+      scale: !this.options.sendCounts
+    });
+
+    _.forEach(samples, (sample) => {
+      this.emit('sample', sample);
+    });
   }
 };
 
 /**
- * Process an compressed packet of data.
- * @param data {Buffer}
- *  Data packet buffer from noble.
+ * Used for client connecting to
+ * @param shieldIP {String} - The local ip address. Or host name on mac or if using bonjour (windows/linux)
+ * @param cb
  * @private
  */
-Wifi.prototype._processCompressedData = function (data) {
-  // Save the packet counter
-  this._packetCounter = parseInt(data[0]);
-
-  // Decompress the buffer into array
-  if (this._packetCounter <= k.OBCIWifiByteId18Bit.max) {
-    this._decompressSamples(obciUtils.decompressDeltas18Bit(data.slice(k.OBCIWifiPacket18Bit.dataStart, k.OBCIWifiPacket18Bit.dataStop)));
-    switch (this._packetCounter % 10) {
-      case k.OBCIWifiAccelAxisX:
-        this._accelArray[0] = this.options.sendCounts ? data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) : data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) * k.OBCIWifiAccelScaleFactor;
-        break;
-      case k.OBCIWifiAccelAxisY:
-        this._accelArray[1] = this.options.sendCounts ? data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) : data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) * k.OBCIWifiAccelScaleFactor;
-        break;
-      case k.OBCIWifiAccelAxisZ:
-        this._accelArray[2] = this.options.sendCounts ? data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) : data.readInt8(k.OBCIWifiPacket18Bit.auxByte - 1) * k.OBCIWifiAccelScaleFactor;
-        this.emit(k.OBCIEmitterAccelerometer, this._accelArray);
-        break;
-      default:
-        break;
-    }
-    const sample1 = this._buildSample(this._packetCounter * 2 - 1, this._decompressedSamples[1]);
-    this.emit(k.OBCIEmitterSample, sample1);
-
-    const sample2 = this._buildSample(this._packetCounter * 2, this._decompressedSamples[2]);
-    this.emit(k.OBCIEmitterSample, sample2);
-
-  } else {
-    this._decompressSamples(obciUtils.decompressDeltas19Bit(data.slice(k.OBCIWifiPacket19Bit.dataStart, k.OBCIWifiPacket19Bit.dataStop)));
-
-    const sample1 = this._buildSample((this._packetCounter - 100) * 2 - 1, this._decompressedSamples[1]);
-    this.emit(k.OBCIEmitterSample, sample1);
-
-    const sample2 = this._buildSample((this._packetCounter - 100) * 2, this._decompressedSamples[2]);
-    this.emit(k.OBCIEmitterSample, sample2);
-  }
-
-  // Rotate the 0 position for next time
-  for (let i = 0; i < k.OBCINumberOfChannelsWifi; i++) {
-    this._decompressedSamples[0][i] = this._decompressedSamples[2][i];
-  }
-};
-
-/**
- * Process and emit an impedance value
- * @param data {Buffer}
- * @private
- */
-Wifi.prototype._processImpedanceData = function (data) {
-  if (this.options.debug) obciDebug.debugBytes('Impedance <<< ', data);
-  const byteId = parseInt(data[0]);
-  let channelNumber;
-  switch (byteId) {
-    case k.OBCIWifiByteIdImpedanceChannel1:
-      channelNumber = 1;
-      break;
-    case k.OBCIWifiByteIdImpedanceChannel2:
-      channelNumber = 2;
-      break;
-    case k.OBCIWifiByteIdImpedanceChannel3:
-      channelNumber = 3;
-      break;
-    case k.OBCIWifiByteIdImpedanceChannel4:
-      channelNumber = 4;
-      break;
-    case k.OBCIWifiByteIdImpedanceChannelReference:
-      channelNumber = 0;
-      break;
-  }
-
-  let output = {
-    channelNumber: channelNumber,
-    impedanceValue: 0
-  };
-
-  let end = data.length;
-
-  while (_.isNaN(Number(data.slice(1, end))) && end !== 0) {
-    end--;
-  }
-
-  if (end !== 0) {
-    output.impedanceValue = Number(data.slice(1, end));
-  }
-
-  this.emit('impedance', output);
-};
-
-/**
- * Used to stack multi packet buffers into the multi packet buffer. This is finally emitted when a stop packet byte id
- *  is received.
- * @param data {Buffer}
- *  The multi packet buffer.
- * @private
- */
-Wifi.prototype._processMultiBytePacket = function (data) {
-  if (this._multiPacketBuffer) {
-    this._multiPacketBuffer = Buffer.concat([this._multiPacketBuffer, data.slice(k.OBCIWifiPacket19Bit.dataStart, k.OBCIWifiPacket19Bit.dataStop)]);
-  } else {
-    this._multiPacketBuffer = data.slice(k.OBCIWifiPacket19Bit.dataStart, k.OBCIWifiPacket19Bit.dataStop);
-  }
-};
-
-/**
- * Adds the `data` buffer to the multi packet buffer and emits the buffer as 'message'
- * @param data {Buffer}
- *  The multi packet stop buffer.
- * @private
- */
-Wifi.prototype._processMultiBytePacketStop = function (data) {
-  this._processMultiBytePacket(data);
-  this.emit(k.OBCIEmitterMessage, this._multiPacketBuffer);
-  this.destroyMultiPacketBuffer();
-};
-
-Wifi.prototype._resetDroppedPacketSystem = function () {
-  this._packetCounter = -1;
-  this._firstPacket = true;
-  this._droppedPacketCounter = 0;
-};
-
-Wifi.prototype._droppedPacket = function (droppedPacketNumber) {
-  this.emit(k.OBCIEmitterDroppedPacket, [droppedPacketNumber]);
-  this._droppedPacketCounter++;
-};
-
-/**
- * Checks for dropped packets
- * @param data {Buffer}
- * @private
- */
-Wifi.prototype._processProcessSampleData = function(data) {
-  const curByteId = parseInt(data[0]);
-  const difByteId = curByteId - this._packetCounter;
-
-  if (this._firstPacket) {
-    this._firstPacket = false;
-    this._processRouteSampleData(data);
-    return;
-  }
-
-  // Wrap around situation
-  if (difByteId < 0) {
-    if (this._packetCounter <= k.OBCIWifiByteId18Bit.max) {
-      if (this._packetCounter === k.OBCIWifiByteId18Bit.max) {
-        if (curByteId !== k.OBCIWifiByteIdUncompressed) {
-          this._droppedPacket(curByteId - 1);
-        }
-      } else {
-        let tempCounter = this._packetCounter + 1;
-        while (tempCounter <= k.OBCIWifiByteId18Bit.max) {
-          this._droppedPacket(tempCounter);
-          tempCounter++;
-        }
-      }
-    } else if (this._packetCounter === k.OBCIWifiByteId19Bit.max) {
-      if (curByteId !== k.OBCIWifiByteIdUncompressed) {
-        this._droppedPacket(curByteId - 1);
-      }
-    } else {
-      let tempCounter = this._packetCounter + 1;
-      while (tempCounter <= k.OBCIWifiByteId19Bit.max) {
-        this._droppedPacket(tempCounter);
-        tempCounter++;
-      }
-    }
-  } else if (difByteId > 1) {
-    if (this._packetCounter === k.OBCIWifiByteIdUncompressed && curByteId === k.OBCIWifiByteId19Bit.min) {
-      this._processRouteSampleData(data);
-      return;
-    } else {
-      let tempCounter = this._packetCounter + 1;
-      while (tempCounter < curByteId) {
-        this._droppedPacket(tempCounter);
-        tempCounter++;
-      }
-    }
-  }
-  this._processRouteSampleData(data);
-};
-
-Wifi.prototype._processRouteSampleData = function(data) {
-  if (parseInt(data[0]) === k.OBCIWifiByteIdUncompressed) {
-    this._processUncompressedData(data);
-  } else {
-    this._processCompressedData(data);
-  }
-};
-
-/**
- * The default route when a ByteId is not recognized.
- * @param data {Buffer}
- * @private
- */
-Wifi.prototype._processOtherData = function (data) {
-  obciDebug.debugBytes('OtherData <<< ', data);
-};
-
-/**
- * Process an uncompressed packet of data.
- * @param data {Buffer}
- *  Data packet buffer from noble.
- * @private
- */
-Wifi.prototype._processUncompressedData = function (data) {
-  let start = 1;
-
-  // Resets the packet counter back to zero
-  this._packetCounter = k.OBCIWifiByteIdUncompressed;  // used to find dropped packets
-  for (let i = 0; i < 4; i++) {
-    this._decompressedSamples[0][i] = interpret24bitAsInt32(data, start);  // seed the decompressor
-    start += 3;
-  }
-
-  const newSample = this._buildSample(0, this._decompressedSamples[0]);
-  this.emit(k.OBCIEmitterSample, newSample);
-};
-
-Wifi.prototype.wifiConnectSocket = function (shieldIP, cb) {
-  this.curParsingMode = k.OBCIParsingNormal;
+Wifi.prototype._connectSocket = function (shieldIP, cb) {
+  this._localName = shieldIP;
   this.post(shieldIP, '/tcp', {
     ip: ip.address(),
     output: this.curOutputMode,
@@ -735,48 +438,15 @@ Wifi.prototype.wifiConnectSocket = function (shieldIP, cb) {
   }, cb);
 };
 
-Wifi.prototype.wifiClientCreate = function () {
-  this.wifiClient = new ssdp({});
-};
-
-Wifi.prototype.wifiDestroy = function () {
+/**
+ * Call this to shut down the servers.
+ */
+Wifi.prototype.destroy = function () {
   this.wifiServer = null;
   if (this.wifiClient) {
     this.wifiClient.stop();
   }
   this.wifiClient = null;
-};
-
-Wifi.prototype.wifiFindShieldsStart = function (timeout, attempts) {
-  this.wifiClient = new ssdp({});
-  let attemptCounter = 0;
-  let _attempts = attempts || 2;
-  let _timeout = timeout || 5 * 1000;
-  let timeoutFunc = () => {
-    if (attemptCounter < _attempts) {
-      this.wifiClient.stop();
-      this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-      attemptCounter++;
-      if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${_attempts}`);
-      this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
-    } else {
-      this.wifiClient.stop();
-      clearTimeout(this.ssdpTimeout);
-      if (this.options.verbose) console.log('SSDP: stopping because out of attemps');
-    }
-  };
-  this.wifiClient.on('response', (headers, code, rinfo) => {
-    if (this.options.verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
-    this.emit('wifiShield', { headers, code, rinfo });
-  });
-  // Search for just the wifi shield
-  this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-  this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
-};
-
-Wifi.prototype.wifiFindShieldsStop = function () {
-  if (this.wifiClient) this.wifiClient.stop();
-  if (this.ssdpTimeout) clearTimeout(this.ssdpTimeout);
 };
 
 Wifi.prototype.wifiGetLocalPort = function () {
@@ -787,13 +457,14 @@ Wifi.prototype.wifiInitServer = function () {
   let persistentBuffer = null;
   const delimBuf = new Buffer("\r\n");
   this.wifiServer = net.createServer((socket) => {
-    streamJSON.on("data", (sample) => {
-      console.log(sample);
-    });
-    socket.on('data', (data) => {
+    // streamJSON.on("data", (sample) => {
+    //   console.log(sample);
+    // });
+    socket.on('data', this._processBytes);
+    // socket.on('data', (data) => {
       // this._processBytes(data);
-      console.log(data.toString());
-      streamJSON.write(data);
+      // console.log(data.toString());
+      // streamJSON.write(data);
       // if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
       // else persistentBuffer = data;
       //
@@ -829,7 +500,7 @@ Wifi.prototype.wifiInitServer = function () {
       //   }
       // }
 
-    });
+    // });
     socket.on('error', (err) => {
       if (this.options.verbose) console.log('SSDP:',err);
     });
@@ -837,7 +508,7 @@ Wifi.prototype.wifiInitServer = function () {
   if (this.options.verbose) console.log("Server on port: ", this.wifiGetLocalPort());
 };
 
-Wifi.prototype.wifiProcessResponse = function (res, cb) {
+Wifi.prototype.processResponse = function (res, cb) {
   if (this.options.verbose) {
     console.log(`STATUS: ${res.statusCode}`);
     console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
@@ -873,7 +544,7 @@ Wifi.prototype.post = function (host, path, payload, cb) {
   };
 
   const req = http.request(options, (res) => {
-    this.wifiProcessResponse(res, (err) => {
+    this.processResponse(res, (err) => {
       if (err) {
         if (cb) cb(err);
       } else {

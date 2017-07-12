@@ -17,14 +17,11 @@
   "author": "AJ Keller <aj@pushtheworld.us> (www.openbci.com)",
   "license": "MIT",
   "dependencies": {
-    "buffer-equal": "^1.0.0",
     "clone": "^2.0.0",
-    "gaussian": "^1.0.0",
     "ip": "^1.1.5",
     "lodash": "^4.16.6",
-    "mathjs": "^3.3.0",
-    "openbci-utilities": "0.0.2",
-    "streamsearch": "^0.1.2"
+    "node-ssdp": "^3.2.1",
+    "openbci-utilities": "0.0.2"
   },
   "directories": {
     "test": "test"
@@ -34,12 +31,13 @@
     "chai": "^4.0.0",
     "chai-as-promised": "^7.1.1",
     "codecov": "^2.2.0",
+    "dirty-chai": "^2.0.1",
     "istanbul": "^0.4.4",
     "mocha": "^3.0.2",
     "sandboxed-module": "^2.0.3",
     "semistandard": "^11.0.0",
     "sinon": "^2.3.7",
-    "sinon-chai": "^2.8.0",
+    "sinon-chai": "^2.11.0",
     "snazzy": "^7.0.0"
   },
   "repository": {

@@ -118,17 +118,17 @@ function Wifi (options, callback) {
   this._firstPacket = true;
   this._localName = null;
   this._multiPacketBuffer = null;
+  this._numberOfChannels = 0;
   this._packetCounter = 0;
   this._peripheral = null;
   this._scanning = false;
   this._streaming = false;
 
   /** Public Properties (keep alphabetical) */
-  this.peripheralArray = [];
-  this.wifiPeripheralArray = [];
-  this.previousPeripheralArray = [];
-  this.manualDisconnect = false;
   this.curOutputMode = wifiOutputModeRaw;
+  this.peripheralArray = [];
+  this.previousPeripheralArray = [];
+  this.wifiPeripheralArray = [];
 
   /** Initializations */
 
@@ -237,11 +237,11 @@ Wifi.prototype.isStreaming = function () {
  * @description This function is used as a convenience method to determine how many
  *              channels the current board is using.
  * @returns {Number} A number
- * Note: This is dependent on if you configured the board correctly on setup options
+ * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
  * @author AJ Keller (@pushtheworldllc)
  */
 Wifi.prototype.numberOfChannels = function () {
-  return k.OBCINumberOfChannelsDefault;
+  return this._numberOfChannels;
 };
 
 /**
@@ -350,6 +350,25 @@ Wifi.prototype.streamStop = function () {
         resolve();
       })
       .catch(reject);
+  });
+};
+
+Wifi.prototype.syncNumberOfChannels = function () {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
+    const resFunc = (res) => {
+      console.log(res);
+      resolve(res);
+    };
+    this.on('res', resFunc);
+    this.get(this._localName,'/all',(err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
   });
 };
 
@@ -573,6 +592,32 @@ Wifi.prototype.post = function (host, path, payload, cb) {
 
   // write data to request body
   req.write(output);
+  req.end();
+};
+
+Wifi.prototype.get = function (host, path, cb) {
+  const options = {
+    host: host,
+    port: 80,
+    path: path,
+    method: 'GET'
+  };
+
+  const req = http.request(options, (res) => {
+    this.processResponse(res, (err) => {
+      if (err) {
+        if (cb) cb(err);
+      } else {
+        if (cb) cb();
+      }
+    });
+  });
+
+  req.once('error', (e) => {
+    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
+    if (cb) cb(e);
+  });
+
   req.end();
 };
 

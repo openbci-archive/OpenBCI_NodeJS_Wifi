@@ -1,6 +1,6 @@
 {
   "name": "openbci-wifi",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The official wifi package of Node.js SDK for the OpenBCI/Push The World Wifi SHeild for Biosensor Boards.",
   "main": "index.js",
   "scripts": {
@@ -44,12 +44,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openbci/openbci_nodejs_utilities.git"
+    "url": "git+https://github.com/openbci/openbci_nodejs_wifi.git"
   },
   "bugs": {
-    "url": "https://github.com/openbci/openbci_nodejs_utilities/issues"
+    "url": "https://github.com/openbci/openbci_nodejs_wifi/issues"
   },
-  "homepage": "https://github.com/openbci/openbci_nodejs_utilities#readme",
+  "homepage": "https://github.com/openbci/openbci_nodejs_wifi#readme",
   "engines": {
     "node": ">=4"
   },

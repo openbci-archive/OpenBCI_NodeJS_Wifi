@@ -1,16 +1,16 @@
-[![Build Status](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Utilities.svg?branch=master)](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Utilities)
-[![codecov](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Utilities/branch/master/graph/badge.svg)](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Utilities)
-[![Dependency Status](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Utilities.svg)](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Utilities)
-[![npm](https://img.shields.io/npm/dm/openbci-ganglion.svg?maxAge=2592000)](http://npmjs.com/package/openbci-utilities)
+[![Build Status](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg?branch=master)](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Wifi)
+[![codecov](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi/branch/master/graph/badge.svg)](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi)
+[![Dependency Status](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg)](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi)
+[![npm](https://img.shields.io/npm/dm/openbci-wifi.svg?maxAge=2592000)](http://npmjs.com/package/openbci-wifi)
 [![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat-square)](https://github.com/Flet/semistandard)
 
-# OpenBCI Node.js Utilities
+# OpenBCI Node.js Wifi
 
 A Node.js module for OpenBCI ~ written with love by [Push The World!](http://www.pushtheworldllc.com)
 
 Push The World is actively developing and maintaining this module.
 
-The purpose of this module is to supply a common node core that allows the reuse of mission critical components, such as sending commands or using a simulator.
+The purpose of this module is to supply an npm module with no native modules that interfaces with the OpenBCI Wifi Shield.
 
 ### Table of Contents:
 ---

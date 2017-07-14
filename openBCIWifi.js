@@ -354,7 +354,7 @@ Wifi.prototype.streamStop = function () {
 };
 
 Wifi.prototype.syncNumberOfChannels = function () {
-  return this.get(this._localName, '/all')
+  return this.get(this._localName, '/board')
     .then((res) => {
       const info = JSON.parse(res);
       this._numberOfChannels = info['num_channels'];

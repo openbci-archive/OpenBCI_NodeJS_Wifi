@@ -126,9 +126,8 @@ function Wifi (options, callback) {
 
   /** Public Properties (keep alphabetical) */
   this.curOutputMode = wifiOutputModeRaw;
-  this.peripheralArray = [];
-  this.previousPeripheralArray = [];
-  this.wifiPeripheralArray = [];
+  this.wifiShieldArray = [];
+  this.previousWifiShieldArray = [];
 
   /** Initializations */
 
@@ -174,10 +173,17 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
-    this._connectSocket(id, (err) => {
-      if (err) return reject(err);
-      else return resolve();
-    });
+    this._connectSocket(id)
+      .then(() => {
+        this._localName = id;
+        this._connected = true;
+        resolve();
+      })
+      .catch((err) => {
+        this._localName = null;
+        this._connected = false;
+        reject(err);
+      });
   });
 };
 
@@ -283,7 +289,16 @@ Wifi.prototype.searchStart = function () {
     };
     this.wifiClient.on('response', (headers, code, rinfo) => {
       if (this.options.verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
-      this.emit('wifiShield', { headers, code, rinfo });
+      try {
+        const shieldName = `OpenBCI-${headers.SERVER.split('/')[2].split('-')[3]}`;
+        const shieldIpAddress = rinfo.address;
+        this.emit(k.OBCIEmitterWifiShield, {
+          localName: shieldName,
+          ipAddress: shieldIpAddress
+        });
+      } catch (err) {
+        console.log('not an openbci shield');
+      }
     });
     // Search for just the wifi shield
     this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
@@ -448,18 +463,16 @@ Wifi.prototype._processBytes = function (data) {
 /**
  * Used for client connecting to
  * @param shieldIP {String} - The local ip address. Or host name on mac or if using bonjour (windows/linux)
- * @param cb
  * @private
  */
-Wifi.prototype._connectSocket = function (shieldIP, cb) {
-  this._localName = shieldIP;
-  this.post(shieldIP, '/tcp', {
+Wifi.prototype._connectSocket = function (shieldIP) {
+  return this.post(shieldIP, '/tcp', {
     ip: ip.address(),
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
     latency: "5000"
-  }, cb);
+  });
 };
 
 /**
@@ -592,12 +605,11 @@ Wifi.prototype._post = function (host, path, payload, cb) {
 //TODO: Implement a function that allows us to async wait for res
 Wifi.prototype.post = function (host, path, payload) {
   return new Promise((resolve, reject) => {
-    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
     const resFunc = (res) => {
       resolve(res);
     };
     this.once('res', resFunc);
-    this._get(host, path, (err) => {
+    this._post(host, path, payload, (err) => {
       if (err) {
         if (this.options.verbose) {
           this.removeListener('res', resFunc);
@@ -637,7 +649,6 @@ Wifi.prototype._get = function (host, path, cb) {
 
 Wifi.prototype.get = function (host, path) {
   return new Promise((resolve, reject) => {
-    if (!this.isConnected()) return reject(Error('Please call connect(ipAddr) where ipAddr is the wifi shield local address'));
     const resFunc = (res) => {
       resolve(res);
     };

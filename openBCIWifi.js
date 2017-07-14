@@ -17,7 +17,6 @@ const Buffer = require('safe-buffer').Buffer;
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
-const defaultChannelSettingsArray = k.channelSettingsArrayInit(k.OBCINumberOfChannelsDefault);
 
 const _options = {
   debug: false,
@@ -111,11 +110,17 @@ function Wifi (options, callback) {
   // Set to global options object
   this.options = clone(opts);
 
+  this._rawDataPacketToSample = k.rawDataToSampleObjectDefault(8);
+  this._rawDataPacketToSample.scale = !this.options.sendCounts;
+  this._rawDataPacketToSample.protocol = k.OBCIProtocolWifi;
+
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
+  this._boardType = k.OBCIBoardNone;
   this._connected = false;
   this._droppedPacketCounter = 0;
   this._firstPacket = true;
+  this._info = null;
   this._localName = null;
   this._multiPacketBuffer = null;
   this._numberOfChannels = 0;
@@ -127,7 +132,6 @@ function Wifi (options, callback) {
   /** Public Properties (keep alphabetical) */
   this.curOutputMode = wifiOutputModeRaw;
   this.wifiShieldArray = [];
-  this.previousWifiShieldArray = [];
 
   /** Initializations */
 
@@ -177,6 +181,9 @@ Wifi.prototype.connect = function (id) {
       .then(() => {
         this._localName = id;
         this._connected = true;
+        return this.syncInfo();
+      })
+      .then(() => {
         resolve();
       })
       .catch((err) => {
@@ -246,8 +253,12 @@ Wifi.prototype.isStreaming = function () {
  * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
  * @author AJ Keller (@pushtheworldllc)
  */
-Wifi.prototype.numberOfChannels = function () {
+Wifi.prototype.getNumberOfChannels = function () {
   return this._numberOfChannels;
+};
+
+Wifi.prototype.getBoardType = function () {
+  return this._boardType;
 };
 
 /**
@@ -376,19 +387,31 @@ Wifi.prototype.streamStop = function () {
   });
 };
 
-Wifi.prototype.syncNumberOfChannels = function () {
+Wifi.prototype.syncInfo = function () {
   return this.get(this._localName, '/board')
-    .then((res) => {
-      const info = JSON.parse(res);
-      this._numberOfChannels = info['num_channels'];
-      return Promise.resolve(info);
+    .then((info) => {
+      try {
+        info = JSON.parse(info);
+        this.openBCIBoardConnected = info['board_connected'];
+        if (!this.openBCIBoardConnected) return Promise.reject(Error('No OpenBCI Board (Ganglion or Cyton) connected, please check power of the boards'));
+        this._numberOfChannels = info['num_channels'];
+        this._boardType = info['board_type'];
+
+        const channelSettings = k.channelSettingsArrayInit(this.getNumberOfChannels());
+        _.forEach(this._channelSettings, (settings, index) => {
+          settings['gain'] = info['gains'][index];
+        });
+        this._rawDataPacketToSample.channelSettings = channelSettings;
+        return Promise.resolve(info);
+      } catch (err) {
+        return Promise.reject(err);
+      }
     })
     .catch((err) => {
       console.log(err);
       return Promise.reject(err);
     })
 };
-
 
 /**
  * @description Used to send data to the board.
@@ -453,14 +476,18 @@ Wifi.prototype._processBytes = function (data) {
     const output = obciUtils.extractRawDataPackets(this.buffer);
 
     this.buffer = output.buffer;
-    const samples = obciUtils.transformRawDataPacketsToSample({
-      rawDataPackets: output.rawDataPackets,
-      gains: defaultChannelSettingsArray,
-      scale: !this.options.sendCounts
-    });
+
+    this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
+
+    const samples = obciUtils.transformRawDataPacketsToSample(this._rawDataPacketToSample);
 
     _.forEach(samples, (sample) => {
-      this.emit('sample', sample);
+      if (this.getBoardType() === k.OBCIBoardDaisy) {
+        // Send the sample for downstream sample compaction
+        this._finalizeNewSampleForDaisy(sample);
+      } else {
+        this.emit(k.OBCIEmitterSample, sample);
+      }
     });
 
     // Prevent bad data from being carried through continuously
@@ -468,6 +495,35 @@ Wifi.prototype._processBytes = function (data) {
       if (bufferEqual(this.buffer, this.prevBuffer)) {
         this.buffer = null;
       }
+    }
+  }
+};
+
+/**
+ * @description This function is called every sample if the boardType is Daisy. The function stores odd sampleNumber
+ *      sample objects to a private global variable called `._lowerChannelsSampleObject`. The method will emit a
+ *      sample object only when the upper channels arrive in an even sampleNumber sample object. No sample will be
+ *      emitted on an even sampleNumber if _lowerChannelsSampleObject is null and one will be added to the
+ *      missedPacket counter. Further missedPacket will increase if two odd sampleNumber packets arrive in a row.
+ * @param sampleObject {Object} - The sample object to finalize
+ * @private
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
+  if (k.isNull(this._lowerChannelsSampleObject)) {
+    this._lowerChannelsSampleObject = sampleObject;
+  } else {
+    // Make sure there is an odd packet waiting to get merged with this packet
+    if (this._lowerChannelsSampleObject.sampleNumber === sampleObject.sampleNumber) {
+      // Merge these two samples
+      var mergedSample = obciUtils.makeDaisySampleObject(this._lowerChannelsSampleObject, sampleObject);
+      // Set the _lowerChannelsSampleObject object to null
+      this._lowerChannelsSampleObject = null;
+      // Emit the new merged sample
+      this.emit('sample', mergedSample);
+    } else {
+      // Missed the odd packet, i.e. two evens in a row
+      this._missedPackets++;
     }
   }
 };

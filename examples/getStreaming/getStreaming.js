@@ -24,9 +24,13 @@ var timeOfLastSample = Date.now();
 
 wifi.on('sample',(sample) => {
   try {
-    const noww = Date.now();
-    console.log(noww - timeOfLastSample);
-    timeOfLastSample = noww;
+    if (sample.sampleNumber === 0) {
+      console.log(sample);
+      const noww = Date.now();
+      console.log(noww - timeOfLastSample);
+      timeOfLastSample = noww;
+    }
+
   } catch (err) {
     console.log(err);
   }
@@ -35,10 +39,7 @@ wifi.on('sample',(sample) => {
 wifi.once('wifiShield', (shield) => {
   wifi.connect(shield.ipAddress)
     .then(() => {
-     return wifi.syncNumberOfChannels();
-    })
-    .then((info) => {
-      return k.getSampleRateSetter(info.board_type, 2000);
+      return k.getSampleRateSetter(wifi.getBoardType(), 250);
     })
     .then((cmds) => {
       return wifi.write(cmds);

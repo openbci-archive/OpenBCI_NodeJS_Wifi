@@ -12,26 +12,33 @@
 var debug = false; // Pretty print any bytes in and out... it's amazing...
 var verbose = true; // Adds verbosity to functions
 
+const k = require('openbci-utilities').Constants;
 var Wifi = require('../../index').Wifi;
 var wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: true
+  sendCounts: false
 });
 
-wifi.on('sample',(sample) => {
+const sampleFunc = (sample) => {
   try {
-    console.log(sample.channelData);
+    if (sample.valid) {
+      console.log(sample.sampleNumber);
+    }
   } catch (err) {
     console.log(err);
   }
-});
+};
 
-wifi.once('wifiShield', (obj) => {
-  const shieldIp = obj.rinfo.address;
-  wifi.connect(shieldIp)
+wifi.on('sample', sampleFunc);
+
+wifi.once('wifiShield', (shield) => {
+  wifi.connect(shield.ipAddress)
     .then(() => {
-     return wifi.streamStart();
+      return wifi.setSampleRate(1000);
+    })
+    .then(() => {
+      return wifi.streamStart();
     })
     .catch((err) => {
       console.log(err);
@@ -40,9 +47,6 @@ wifi.once('wifiShield', (obj) => {
 });
 
 wifi.searchStart().catch(console.log);
-
-// const shield_uuid = "openbci-2af1.local";
-
 
 function exitHandler (options, err) {
   if (options.cleanup) {
@@ -57,11 +61,18 @@ function exitHandler (options, err) {
   if (options.exit) {
     if (verbose) console.log('exit');
     if (wifi.isStreaming()) {
+      setTimeout(() => {
+        console.log("timeout");
+        process.exit(0);
+      }, 1000);
       wifi.streamStop()
         .then(() => {
           console.log('stream stopped');
           process.exit(0);
-        }).catch(console.log);
+        }).catch((err) => {
+          console.log(err);
+          process.exit(0);
+        });
     }
   }
 }

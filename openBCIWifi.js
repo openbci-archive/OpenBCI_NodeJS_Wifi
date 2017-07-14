@@ -17,9 +17,14 @@ const Buffer = require('safe-buffer').Buffer;
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
-const defaultChannelSettingsArray = k.channelSettingsArrayInit(k.OBCINumberOfChannelsDefault);
 
+/**
+ * Options object
+ * @type {InitializationObject}
+ * @private
+ */
 const _options = {
+  attempts: 10,
   debug: false,
   sendCounts: false,
   simulate: false,
@@ -33,34 +38,41 @@ const _options = {
 };
 
 /**
- * @description The initialization method to call first, before any other method.
- * @param options {object} (optional) - Board optional configurations.
- *     - `debug` {Boolean} - Print out a raw dump of bytes sent and received. (Default `false`)
+ * @typedef {Object} InitializationObject
+ * @property {Number} attempts  - The number of times to try and perform an SSDP search before quitting. (Default 10)
  *
- *     - `sendCounts` {Boolean} - Send integer raw counts instead of scaled floats.
+ * @property {Boolean} debug  - Print out a raw dump of bytes sent and received. (Default `false`)
+ *
+ * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
  *           (Default `false`)
  *
- *     - `simulate` {Boolean} - (IN-OP) Full functionality, just mock data. Must attach Daisy module by setting
+ * @property {Boolean} simulate  - (IN-OP) Full functionality, just mock data. Must attach Daisy module by setting
  *                  `simulatorDaisyModuleAttached` to `true` in order to get 16 channels. (Default `false`)
  *
- *     - `simulatorBoardFailure` {Boolean} - (IN-OP)  Simulates board communications failure. This occurs when the RFduino on
+ * @property {Boolean} simulatorBoardFailure  - (IN-OP)  Simulates board communications failure. This occurs when the RFduino on
  *                  the board is not polling the RFduino on the dongle. (Default `false`)
  *
- *     - `simulatorHasAccelerometer` - {Boolean} - Sets simulator to send packets with accelerometer data. (Default `true`)
+ * @property {Boolean} simulatorHasAccelerometer  - Sets simulator to send packets with accelerometer data. (Default `true`)
  *
- *     - `simulatorInjectAlpha` - {Boolean} - Inject a 10Hz alpha wave in Channels 1 and 2 (Default `true`)
+ * @property {Boolean} simulatorInjectAlpha  - Inject a 10Hz alpha wave in Channels 1 and 2 (Default `true`)
  *
- *     - `simulatorInjectLineNoise` {String} - Injects line noise on channels.
+ * @property {String} simulatorInjectLineNoise  - Injects line noise on channels.
  *          3 Possible Options:
  *              `60Hz` - 60Hz line noise (Default) [America]
  *              `50Hz` - 50Hz line noise [Europe]
  *              `none` - Do not inject line noise.
  *
- *     - `simulatorSampleRate` {Number} - The sample rate to use for the simulator. Simulator will set to 125 if
+ * @property {Number} simulatorSampleRate  - The sample rate to use for the simulator. Simulator will set to 125 if
  *                  `simulatorDaisyModuleAttached` is set `true`. However, setting this option overrides that
  *                  setting and this sample rate will be used. (Default is `250`)
  *
- *     - `verbose` {Boolean} - Print out useful debugging events. (Default `false`)
+ * @property {Boolean} verbose  - Print out useful debugging events. (Default `false`)
+ *
+ */
+
+/**
+ * @description The initialization method to call first, before any other method.
+ * @param options {InitializationObject} (optional) - Board optional configurations.
  * @param callback {function} (optional) - A callback function used to determine if the noble module was able to be started.
  *    This can be very useful on Windows when there is no compatible BLE device found.
  * @constructor
@@ -108,27 +120,39 @@ function Wifi (options, callback) {
 
   for (o in options) throw new Error('"' + o + '" is not a valid option');
 
-  // Set to global options object
+  /**
+   * @type {InitializationObject}
+   */
   this.options = clone(opts);
+
+  /**
+   * @type {RawDataToSample}
+   * @private
+   */
+  this._rawDataPacketToSample = k.rawDataToSampleObjectDefault(8);
+  this._rawDataPacketToSample.scale = !this.options.sendCounts;
+  this._rawDataPacketToSample.protocol = k.OBCIProtocolWifi;
+  this._rawDataPacketToSample.verbose = this.options.verbose;
 
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
+  this._boardType = k.OBCIBoardNone;
   this._connected = false;
   this._droppedPacketCounter = 0;
   this._firstPacket = true;
+  this._info = null;
   this._localName = null;
+  this._lowerChannelsSampleObject = null;
   this._multiPacketBuffer = null;
+  this._numberOfChannels = 0;
   this._packetCounter = 0;
   this._peripheral = null;
   this._scanning = false;
   this._streaming = false;
 
   /** Public Properties (keep alphabetical) */
-  this.peripheralArray = [];
-  this.wifiPeripheralArray = [];
-  this.previousPeripheralArray = [];
-  this.manualDisconnect = false;
   this.curOutputMode = wifiOutputModeRaw;
+  this.wifiShieldArray = [];
 
   /** Initializations */
 
@@ -174,10 +198,20 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
-    this._connectSocket(id, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
+    this._connectSocket(id)
+      .then(() => {
+        this._localName = id;
+        this._connected = true;
+        return this.syncInfo();
+      })
+      .then(() => {
+        resolve();
+      })
+      .catch((err) => {
+        this._localName = null;
+        this._connected = false;
+        reject(err);
+      });
   });
 };
 
@@ -237,11 +271,55 @@ Wifi.prototype.isStreaming = function () {
  * @description This function is used as a convenience method to determine how many
  *              channels the current board is using.
  * @returns {Number} A number
- * Note: This is dependent on if you configured the board correctly on setup options
+ * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
  * @author AJ Keller (@pushtheworldllc)
  */
-Wifi.prototype.numberOfChannels = function () {
-  return k.OBCINumberOfChannelsDefault;
+Wifi.prototype.getNumberOfChannels = function () {
+  return this._numberOfChannels;
+};
+
+/**
+ * @description Get the current board type
+ * @returns {*}
+ */
+Wifi.prototype.getBoardType = function () {
+  return this._boardType;
+};
+
+Wifi.prototype.getSampleRate = function () {
+  return new Promise((resolve, reject) => {
+    this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
+      .then((res) => {
+        if (_.includes(res, k.OBCIParseSuccess)) {
+          resolve(Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2)));
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
+};
+
+Wifi.prototype.setSampleRate = function (sampleRate) {
+  return new Promise((resolve, reject) => {
+    k.getSampleRateSetter(this._boardType, sampleRate)
+      .then((cmds) => {
+        return this.write(cmds);
+      })
+      .then((res) => {
+        if (_.includes(res, k.OBCIParseSuccess)) {
+          this._sampleRate = Number(res.substring("Success: Sample rate is ".length, res.length - 4));
+          resolve(this._sampleRate);
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
 };
 
 /**
@@ -250,11 +328,7 @@ Wifi.prototype.numberOfChannels = function () {
  * Note: This is dependent on if you configured the board correctly on setup options
  */
 Wifi.prototype.sampleRate = function () {
-  if (this.options.simulate) {
-    return this.options.simulatorSampleRate;
-  } else {
-    return k.OBCISampleRate200;
-  }
+  return this._sampleRate;
 };
 
 /**
@@ -267,14 +341,13 @@ Wifi.prototype.searchStart = function () {
     this._scanning = true;
     this.wifiClient = new Client({});
     let attemptCounter = 0;
-    let _attempts = 4; // Retry 4 times. Sometimes ssdp stalls out...
     let _timeout = 3 * 1000; // Retry every 3 seconds
     let timeoutFunc = () => {
-      if (attemptCounter < _attempts) {
+      if (attemptCounter < this.options.attempts) {
         this.wifiClient.stop();
         this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
         attemptCounter++;
-        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${_attempts}`);
+        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
         this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
       } else {
         if (this.options.verbose) console.log('SSDP: stopping because out of attempts');
@@ -283,7 +356,24 @@ Wifi.prototype.searchStart = function () {
     };
     this.wifiClient.on('response', (headers, code, rinfo) => {
       if (this.options.verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
-      this.emit('wifiShield', { headers, code, rinfo });
+      try {
+        const shieldName = `OpenBCI-${headers.SERVER.split('/')[2].split('-')[3]}`;
+        const shieldIpAddress = rinfo.address;
+        const wifiShieldObject = {
+          ipAddress: shieldIpAddress,
+          localName: shieldName
+        };
+        let addShield = true;
+        _.forEach(this.wifiShieldArray, (shield) => {
+          if (shield.ipAddress === shieldIpAddress) {
+            addShield = false;
+          }
+        });
+        if (addShield) this.wifiShieldArray.push(wifiShieldObject);
+        this.emit(k.OBCIEmitterWifiShield, wifiShieldObject);
+      } catch (err) {
+        console.log('not an openbci shield');
+      }
     });
     // Search for just the wifi shield
     this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
@@ -353,6 +443,36 @@ Wifi.prototype.streamStop = function () {
   });
 };
 
+Wifi.prototype.syncInfo = function () {
+  return this.get(this._localName, '/board')
+    .then((info) => {
+      try {
+        info = JSON.parse(info);
+        this.openBCIBoardConnected = info['board_connected'];
+        if (!this.openBCIBoardConnected) return Promise.reject(Error('No OpenBCI Board (Ganglion or Cyton) connected, please check power of the boards'));
+        this._numberOfChannels = info['num_channels'];
+        this._boardType = info['board_type'];
+
+        const channelSettings = k.channelSettingsArrayInit(this.getNumberOfChannels());
+        _.forEach(this._channelSettings, (settings, index) => {
+          settings['gain'] = info['gains'][index];
+        });
+        this._rawDataPacketToSample.channelSettings = channelSettings;
+        return this.getSampleRate();
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    })
+    .then((sampleRate) => {
+      this._sampleRate = sampleRate;
+      return Promise.resolve();
+    })
+    .catch((err) => {
+      console.log(err);
+      return Promise.reject(err);
+    })
+};
+
 /**
  * @description Used to send data to the board.
  * @param data {Array | Buffer | Number | String} - The data to write out
@@ -363,17 +483,20 @@ Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
     if (this._localName) {
       if (!Buffer.isBuffer(data)) {
-        data = new Buffer(data);
+        if (_.isArray(data)) {
+          data = Buffer.alloc(data.length, data.join(''));
+        } else {
+          data = new Buffer(data);
+        }
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post(
-        this._localName,
-        '/command',
-        {'command': data.toString()},
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
+      this.post(this._localName, '/command', {'command': data.toString()})
+        .then((res) => {
+          resolve(res);
+        })
+        .catch((err) => {
+          reject(err);
+        })
     } else {
       reject('Local name is not set. Please call connect with ip address of wifi shield');
     }
@@ -413,14 +536,18 @@ Wifi.prototype._processBytes = function (data) {
     const output = obciUtils.extractRawDataPackets(this.buffer);
 
     this.buffer = output.buffer;
-    const samples = obciUtils.transformRawDataPacketsToSample({
-      rawDataPackets: output.rawDataPackets,
-      gains: defaultChannelSettingsArray,
-      scale: !this.options.sendCounts
-    });
+
+    this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
+
+    const samples = obciUtils.transformRawDataPacketsToSample(this._rawDataPacketToSample);
 
     _.forEach(samples, (sample) => {
-      this.emit('sample', sample);
+      if (this.getBoardType() === k.OBCIBoardDaisy) {
+        // Send the sample for downstream sample compaction
+        this._finalizeNewSampleForDaisy(sample);
+      } else {
+        this.emit(k.OBCIEmitterSample, sample);
+      }
     });
 
     // Prevent bad data from being carried through continuously
@@ -433,20 +560,47 @@ Wifi.prototype._processBytes = function (data) {
 };
 
 /**
+ * @description This function is called every sample if the boardType is Daisy. The function stores odd sampleNumber
+ *      sample objects to a private global variable called `._lowerChannelsSampleObject`. The method will emit a
+ *      sample object only when the upper channels arrive in an even sampleNumber sample object. No sample will be
+ *      emitted on an even sampleNumber if _lowerChannelsSampleObject is null and one will be added to the
+ *      missedPacket counter. Further missedPacket will increase if two odd sampleNumber packets arrive in a row.
+ * @param sampleObject {Object} - The sample object to finalize
+ * @private
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
+  if (k.isNull(this._lowerChannelsSampleObject)) {
+    this._lowerChannelsSampleObject = sampleObject;
+  } else {
+    // Make sure there is an odd packet waiting to get merged with this packet
+    if (this._lowerChannelsSampleObject.sampleNumber === sampleObject.sampleNumber) {
+      // Merge these two samples
+      var mergedSample = obciUtils.makeDaisySampleObjectWifi(this._lowerChannelsSampleObject, sampleObject);
+      // Set the _lowerChannelsSampleObject object to null
+      this._lowerChannelsSampleObject = null;
+      // Emit the new merged sample
+      this.emit('sample', mergedSample);
+    } else {
+      // Missed the odd packet, i.e. two evens in a row
+      this._lowerChannelsSampleObject = sampleObject;
+    }
+  }
+};
+
+/**
  * Used for client connecting to
  * @param shieldIP {String} - The local ip address. Or host name on mac or if using bonjour (windows/linux)
- * @param cb
  * @private
  */
-Wifi.prototype._connectSocket = function (shieldIP, cb) {
-  this._localName = shieldIP;
-  this.post(shieldIP, '/tcp', {
+Wifi.prototype._connectSocket = function (shieldIP) {
+  return this.post(shieldIP, '/tcp', {
     ip: ip.address(),
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
     latency: "5000"
-  }, cb);
+  });
 };
 
 /**
@@ -543,7 +697,7 @@ Wifi.prototype.processResponse = function (res, cb) {
   });
 };
 
-Wifi.prototype.post = function (host, path, payload, cb) {
+Wifi.prototype._post = function (host, path, payload, cb) {
   const output = JSON.stringify(payload);
   const options = {
     host: host,
@@ -554,6 +708,53 @@ Wifi.prototype.post = function (host, path, payload, cb) {
       'Content-Type': 'application/json',
       'Content-Length': output.length
     }
+  };
+
+  const req = http.request(options, (res) => {
+    this.processResponse(res, (err) => {
+      if (err) {
+        if (cb) cb.call(this, err);
+      } else {
+        if (cb) cb.call(this);
+      }
+    });
+  });
+
+  req.once('error', (e) => {
+    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
+    if (cb) cb.call(this, e);
+  });
+
+  // write data to request body
+  req.write(output);
+  req.end();
+};
+
+//TODO: Implement a function that allows us to async wait for res
+Wifi.prototype.post = function (host, path, payload) {
+  return new Promise((resolve, reject) => {
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._post(host, path, payload, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
+};
+
+
+Wifi.prototype._get = function (host, path, cb) {
+  const options = {
+    host: host,
+    port: 80,
+    path: path,
+    method: 'GET'
   };
 
   const req = http.request(options, (res) => {
@@ -571,9 +772,24 @@ Wifi.prototype.post = function (host, path, payload, cb) {
     if (cb) cb(e);
   });
 
-  // write data to request body
-  req.write(output);
   req.end();
+};
+
+Wifi.prototype.get = function (host, path) {
+  return new Promise((resolve, reject) => {
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._get(host, path, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
 };
 
 module.exports = Wifi;

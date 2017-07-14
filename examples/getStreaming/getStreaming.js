@@ -12,6 +12,7 @@
 var debug = false; // Pretty print any bytes in and out... it's amazing...
 var verbose = true; // Adds verbosity to functions
 
+const k = require('openbci-utilities').Constants;
 var Wifi = require('../../index').Wifi;
 var wifi = new Wifi({
   debug: debug,
@@ -19,19 +20,31 @@ var wifi = new Wifi({
   sendCounts: true
 });
 
+var timeOfLastSample = Date.now();
+
 wifi.on('sample',(sample) => {
   try {
-    console.log(sample.channelData);
+    const noww = Date.now();
+    console.log(noww - timeOfLastSample);
+    timeOfLastSample = noww;
   } catch (err) {
     console.log(err);
   }
 });
 
-wifi.once('wifiShield', (obj) => {
-  const shieldIp = obj.rinfo.address;
-  wifi.connect(shieldIp)
+wifi.once('wifiShield', (shield) => {
+  wifi.connect(shield.ipAddress)
     .then(() => {
      return wifi.syncNumberOfChannels();
+    })
+    .then((info) => {
+      return k.getSampleRateSetter(info.board_type, 2000);
+    })
+    .then((cmds) => {
+      return wifi.write(cmds);
+    })
+    .then(() => {
+      return wifi.streamStart();
     })
     .catch((err) => {
       console.log(err);

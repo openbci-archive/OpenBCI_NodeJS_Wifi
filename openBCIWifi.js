@@ -292,10 +292,18 @@ Wifi.prototype.searchStart = function () {
       try {
         const shieldName = `OpenBCI-${headers.SERVER.split('/')[2].split('-')[3]}`;
         const shieldIpAddress = rinfo.address;
-        this.emit(k.OBCIEmitterWifiShield, {
-          localName: shieldName,
-          ipAddress: shieldIpAddress
+        const wifiShieldObject = {
+          ipAddress: shieldIpAddress,
+          localName: shieldName
+        };
+        let addShield = true;
+        _.forEach(this.wifiShieldArray, (shield) => {
+          if (shield.ipAddress === shieldIpAddress) {
+            addShield = false;
+          }
         });
+        if (addShield) this.wifiShieldArray.push(wifiShieldObject);
+        this.emit(k.OBCIEmitterWifiShield, wifiShieldObject);
       } catch (err) {
         console.log('not an openbci shield');
       }
@@ -373,13 +381,14 @@ Wifi.prototype.syncNumberOfChannels = function () {
     .then((res) => {
       const info = JSON.parse(res);
       this._numberOfChannels = info['num_channels'];
-      return Promise.resolve();
+      return Promise.resolve(info);
     })
     .catch((err) => {
       console.log(err);
       return Promise.reject(err);
     })
 };
+
 
 /**
  * @description Used to send data to the board.
@@ -391,17 +400,20 @@ Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
     if (this._localName) {
       if (!Buffer.isBuffer(data)) {
-        data = new Buffer(data);
+        if (_.isArray(data)) {
+          data = Buffer.alloc(data.length, data.join(''));
+        } else {
+          data = new Buffer(data);
+        }
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post(
-        this._localName,
-        '/command',
-        {'command': data.toString()},
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
+      this.post(this._localName, '/command', {'command': data.toString()})
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+        })
     } else {
       reject('Local name is not set. Please call connect with ip address of wifi shield');
     }

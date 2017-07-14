@@ -122,6 +122,7 @@ function Wifi (options, callback) {
   this._firstPacket = true;
   this._info = null;
   this._localName = null;
+  this._lowerChannelsSampleObject = null;
   this._multiPacketBuffer = null;
   this._numberOfChannels = 0;
   this._packetCounter = 0;
@@ -257,8 +258,48 @@ Wifi.prototype.getNumberOfChannels = function () {
   return this._numberOfChannels;
 };
 
+/**
+ * @description Get the current board type
+ * @returns {*}
+ */
 Wifi.prototype.getBoardType = function () {
   return this._boardType;
+};
+
+Wifi.prototype.getSampleRate = function () {
+  return new Promise((resolve, reject) => {
+    this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
+      .then((res) => {
+        if (_.includes(res, k.OBCIParseSuccess)) {
+          resolve(Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2)));
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
+};
+
+Wifi.prototype.setSampleRate = function (sampleRate) {
+  return new Promise((resolve, reject) => {
+    k.getSampleRateSetter(this._boardType, sampleRate)
+      .then((cmds) => {
+        return this.write(cmds);
+      })
+      .then((res) => {
+        if (_.includes(res, k.OBCIParseSuccess)) {
+          this._sampleRate = Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2));
+          resolve(this._sampleRate);
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
 };
 
 /**
@@ -267,11 +308,7 @@ Wifi.prototype.getBoardType = function () {
  * Note: This is dependent on if you configured the board correctly on setup options
  */
 Wifi.prototype.sampleRate = function () {
-  if (this.options.simulate) {
-    return this.options.simulatorSampleRate;
-  } else {
-    return k.OBCISampleRate200;
-  }
+  return this._sampleRate;
 };
 
 /**
@@ -402,10 +439,14 @@ Wifi.prototype.syncInfo = function () {
           settings['gain'] = info['gains'][index];
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
-        return Promise.resolve(info);
+        return this.getSampleRate();
       } catch (err) {
         return Promise.reject(err);
       }
+    })
+    .then((sampleRate) => {
+      this._sampleRate = sampleRate;
+      return Promise.resolve();
     })
     .catch((err) => {
       console.log(err);
@@ -431,8 +472,8 @@ Wifi.prototype.write = function (data) {
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
       this.post(this._localName, '/command', {'command': data.toString()})
-        .then(() => {
-          resolve();
+        .then((res) => {
+          resolve(res);
         })
         .catch((err) => {
           reject(err);
@@ -516,14 +557,14 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
     // Make sure there is an odd packet waiting to get merged with this packet
     if (this._lowerChannelsSampleObject.sampleNumber === sampleObject.sampleNumber) {
       // Merge these two samples
-      var mergedSample = obciUtils.makeDaisySampleObject(this._lowerChannelsSampleObject, sampleObject);
+      var mergedSample = obciUtils.makeDaisySampleObjectWifi(this._lowerChannelsSampleObject, sampleObject);
       // Set the _lowerChannelsSampleObject object to null
       this._lowerChannelsSampleObject = null;
       // Emit the new merged sample
       this.emit('sample', mergedSample);
     } else {
       // Missed the odd packet, i.e. two evens in a row
-      this._missedPackets++;
+      this._lowerChannelsSampleObject = sampleObject;
     }
   }
 };

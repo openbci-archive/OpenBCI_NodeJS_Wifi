@@ -22,7 +22,7 @@
     "ip": "^1.1.5",
     "lodash": "^4.16.6",
     "node-ssdp": "^3.2.1",
-    "openbci-utilities": "0.0.4",
+    "openbci-utilities": "0.0.5",
     "safe-buffer": "^5.1.1"
   },
   "directories": {

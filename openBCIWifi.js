@@ -18,7 +18,13 @@ const Buffer = require('safe-buffer').Buffer;
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
 
+/**
+ * Options object
+ * @type {InitializationObject}
+ * @private
+ */
 const _options = {
+  attempts: 10,
   debug: false,
   sendCounts: false,
   simulate: false,
@@ -32,34 +38,41 @@ const _options = {
 };
 
 /**
- * @description The initialization method to call first, before any other method.
- * @param options {object} (optional) - Board optional configurations.
- *     - `debug` {Boolean} - Print out a raw dump of bytes sent and received. (Default `false`)
+ * @typedef {Object} InitializationObject
+ * @property {Number} attempts  - The number of times to try and perform an SSDP search before quitting. (Default 10)
  *
- *     - `sendCounts` {Boolean} - Send integer raw counts instead of scaled floats.
+ * @property {Boolean} debug  - Print out a raw dump of bytes sent and received. (Default `false`)
+ *
+ * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
  *           (Default `false`)
  *
- *     - `simulate` {Boolean} - (IN-OP) Full functionality, just mock data. Must attach Daisy module by setting
+ * @property {Boolean} simulate  - (IN-OP) Full functionality, just mock data. Must attach Daisy module by setting
  *                  `simulatorDaisyModuleAttached` to `true` in order to get 16 channels. (Default `false`)
  *
- *     - `simulatorBoardFailure` {Boolean} - (IN-OP)  Simulates board communications failure. This occurs when the RFduino on
+ * @property {Boolean} simulatorBoardFailure  - (IN-OP)  Simulates board communications failure. This occurs when the RFduino on
  *                  the board is not polling the RFduino on the dongle. (Default `false`)
  *
- *     - `simulatorHasAccelerometer` - {Boolean} - Sets simulator to send packets with accelerometer data. (Default `true`)
+ * @property {Boolean} simulatorHasAccelerometer  - Sets simulator to send packets with accelerometer data. (Default `true`)
  *
- *     - `simulatorInjectAlpha` - {Boolean} - Inject a 10Hz alpha wave in Channels 1 and 2 (Default `true`)
+ * @property {Boolean} simulatorInjectAlpha  - Inject a 10Hz alpha wave in Channels 1 and 2 (Default `true`)
  *
- *     - `simulatorInjectLineNoise` {String} - Injects line noise on channels.
+ * @property {String} simulatorInjectLineNoise  - Injects line noise on channels.
  *          3 Possible Options:
  *              `60Hz` - 60Hz line noise (Default) [America]
  *              `50Hz` - 50Hz line noise [Europe]
  *              `none` - Do not inject line noise.
  *
- *     - `simulatorSampleRate` {Number} - The sample rate to use for the simulator. Simulator will set to 125 if
+ * @property {Number} simulatorSampleRate  - The sample rate to use for the simulator. Simulator will set to 125 if
  *                  `simulatorDaisyModuleAttached` is set `true`. However, setting this option overrides that
  *                  setting and this sample rate will be used. (Default is `250`)
  *
- *     - `verbose` {Boolean} - Print out useful debugging events. (Default `false`)
+ * @property {Boolean} verbose  - Print out useful debugging events. (Default `false`)
+ *
+ */
+
+/**
+ * @description The initialization method to call first, before any other method.
+ * @param options {InitializationObject} (optional) - Board optional configurations.
  * @param callback {function} (optional) - A callback function used to determine if the noble module was able to be started.
  *    This can be very useful on Windows when there is no compatible BLE device found.
  * @constructor
@@ -107,12 +120,19 @@ function Wifi (options, callback) {
 
   for (o in options) throw new Error('"' + o + '" is not a valid option');
 
-  // Set to global options object
+  /**
+   * @type {InitializationObject}
+   */
   this.options = clone(opts);
 
+  /**
+   * @type {RawDataToSample}
+   * @private
+   */
   this._rawDataPacketToSample = k.rawDataToSampleObjectDefault(8);
   this._rawDataPacketToSample.scale = !this.options.sendCounts;
   this._rawDataPacketToSample.protocol = k.OBCIProtocolWifi;
+  this._rawDataPacketToSample.verbose = this.options.verbose;
 
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
@@ -290,7 +310,7 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
       })
       .then((res) => {
         if (_.includes(res, k.OBCIParseSuccess)) {
-          this._sampleRate = Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2));
+          this._sampleRate = Number(res.substring("Success: Sample rate is ".length, res.length - 4));
           resolve(this._sampleRate);
         } else {
           reject(res);
@@ -321,14 +341,13 @@ Wifi.prototype.searchStart = function () {
     this._scanning = true;
     this.wifiClient = new Client({});
     let attemptCounter = 0;
-    let _attempts = 4; // Retry 4 times. Sometimes ssdp stalls out...
     let _timeout = 3 * 1000; // Retry every 3 seconds
     let timeoutFunc = () => {
-      if (attemptCounter < _attempts) {
+      if (attemptCounter < this.options.attempts) {
         this.wifiClient.stop();
         this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
         attemptCounter++;
-        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${_attempts}`);
+        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
         this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
       } else {
         if (this.options.verbose) console.log('SSDP: stopping because out of attempts');

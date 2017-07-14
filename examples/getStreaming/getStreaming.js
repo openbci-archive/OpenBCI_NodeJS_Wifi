@@ -17,32 +17,25 @@ var Wifi = require('../../index').Wifi;
 var wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: true
+  sendCounts: false
 });
 
-var timeOfLastSample = Date.now();
-
-wifi.on('sample',(sample) => {
+const sampleFunc = (sample) => {
   try {
-    if (sample.sampleNumber === 0) {
-      console.log(sample);
-      const noww = Date.now();
-      console.log(noww - timeOfLastSample);
-      timeOfLastSample = noww;
+    if (sample.valid) {
+      console.log(sample.sampleNumber);
     }
-
   } catch (err) {
     console.log(err);
   }
-});
+};
+
+wifi.on('sample', sampleFunc);
 
 wifi.once('wifiShield', (shield) => {
   wifi.connect(shield.ipAddress)
     .then(() => {
-      return k.getSampleRateSetter(wifi.getBoardType(), 250);
-    })
-    .then((cmds) => {
-      return wifi.write(cmds);
+      return wifi.setSampleRate(1000);
     })
     .then(() => {
       return wifi.streamStart();
@@ -54,9 +47,6 @@ wifi.once('wifiShield', (shield) => {
 });
 
 wifi.searchStart().catch(console.log);
-
-// const shield_uuid = "openbci-2af1.local";
-
 
 function exitHandler (options, err) {
   if (options.cleanup) {
@@ -71,11 +61,18 @@ function exitHandler (options, err) {
   if (options.exit) {
     if (verbose) console.log('exit');
     if (wifi.isStreaming()) {
+      setTimeout(() => {
+        console.log("timeout");
+        process.exit(0);
+      }, 1000);
       wifi.streamStop()
         .then(() => {
           console.log('stream stopped');
           process.exit(0);
-        }).catch(console.log);
+        }).catch((err) => {
+          console.log(err);
+          process.exit(0);
+        });
     }
   }
 }

@@ -198,13 +198,25 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
+    if (_.isObject(id)) {
+      id = id.ipAddress;
+    } else if (_.includes(id.toLowerCase(), "openbci")) {
+      _.forEach(this.wifiShieldArray, (shield) => {
+        if (shield.localName === id) {
+          id = shield.ipAddress;
+        }
+      });
+    }
+    if (this.options.verbose) console.log(`Attempting to connect to ${id}`);
     this._connectSocket(id)
       .then(() => {
+        if (this.options.verbose) console.log(`Connected to ${id}`);
         this._localName = id;
         this._connected = true;
         return this.syncInfo();
       })
       .then(() => {
+        if (this.options.verbose) console.log(`Synced into with ${id}`);
         resolve();
       })
       .catch((err) => {
@@ -287,11 +299,12 @@ Wifi.prototype.getBoardType = function () {
 };
 
 Wifi.prototype.getSampleRate = function () {
+  const numPattern = /\d+/g;
   return new Promise((resolve, reject) => {
     this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
       .then((res) => {
         if (_.includes(res, k.OBCIParseSuccess)) {
-          resolve(Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2)));
+          resolve(Number(res.match(numPattern)[0]));
         } else {
           reject(res);
         }
@@ -303,6 +316,7 @@ Wifi.prototype.getSampleRate = function () {
 };
 
 Wifi.prototype.setSampleRate = function (sampleRate) {
+  const numPattern = /\d+/g;
   return new Promise((resolve, reject) => {
     k.getSampleRateSetter(this._boardType, sampleRate)
       .then((cmds) => {
@@ -310,7 +324,7 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
       })
       .then((res) => {
         if (_.includes(res, k.OBCIParseSuccess)) {
-          this._sampleRate = Number(res.substring("Success: Sample rate is ".length, res.length - 4));
+          this._sampleRate = Number(res.match(numPattern)[0]);
           resolve(this._sampleRate);
         } else {
           reject(res);
@@ -344,11 +358,13 @@ Wifi.prototype.searchStart = function () {
     let _timeout = 3 * 1000; // Retry every 3 seconds
     let timeoutFunc = () => {
       if (attemptCounter < this.options.attempts) {
-        this.wifiClient.stop();
-        this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-        attemptCounter++;
-        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
-        this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+        if (this.wifiClient) {
+          this.wifiClient.stop();
+          this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
+          attemptCounter++;
+          if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
+          this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+        }
       } else {
         if (this.options.verbose) console.log('SSDP: stopping because out of attempts');
         this.searchStop();
@@ -458,12 +474,14 @@ Wifi.prototype.syncInfo = function () {
           settings['gain'] = info['gains'][index];
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
+        if (this.options.verbose) console.log(`Got all info from GET /board`);
         return this.getSampleRate();
       } catch (err) {
         return Promise.reject(err);
       }
     })
     .then((sampleRate) => {
+      if (this.options.verbose) console.log(`Sample rate is ${sampleRate}`);
       this._sampleRate = sampleRate;
       return Promise.resolve();
     })

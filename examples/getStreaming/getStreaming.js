@@ -35,9 +35,16 @@ wifi.on('sample', sampleFunc);
 wifi.once('wifiShield', (shield) => {
   wifi.connect(shield.ipAddress)
     .then(() => {
-      return wifi.setSampleRate(1000);
+      if (wifi.getNumberOfChannels() == 4) {
+        console.log("setting sample rate to 1600 for ganglion");
+        return wifi.setSampleRate(1600);
+      } else {
+        console.log("setting sample rate to 1000 for cyton/daisy");
+        return wifi.setSampleRate(1000);
+      }
     })
     .then(() => {
+    console.log("sendign stream start");
       return wifi.streamStart();
     })
     .catch((err) => {

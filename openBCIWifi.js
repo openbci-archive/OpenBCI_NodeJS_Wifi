@@ -198,6 +198,15 @@ Wifi.prototype.channelOn = function (channelNumber) {
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
+    if (_.isObject(id)) {
+      id = id.ipAddress;
+    } else if (_.includes(id.toLowerCase(), "openbci")) {
+      _.forEach(this.wifiShieldArray, (shield) => {
+        if (shield.localName === id) {
+          id = shield.ipAddress;
+        }
+      });
+    }
     this._connectSocket(id)
       .then(() => {
         this._localName = id;
@@ -344,11 +353,13 @@ Wifi.prototype.searchStart = function () {
     let _timeout = 3 * 1000; // Retry every 3 seconds
     let timeoutFunc = () => {
       if (attemptCounter < this.options.attempts) {
-        this.wifiClient.stop();
-        this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-        attemptCounter++;
-        if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
-        this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+        if (this.wifiClient) {
+          this.wifiClient.stop();
+          this.wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
+          attemptCounter++;
+          if (this.options.verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${this.options.attempts}`);
+          this.ssdpTimeout = setTimeout(timeoutFunc, _timeout);
+        }
       } else {
         if (this.options.verbose) console.log('SSDP: stopping because out of attempts');
         this.searchStop();

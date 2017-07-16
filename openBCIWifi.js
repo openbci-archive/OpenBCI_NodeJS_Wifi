@@ -207,13 +207,16 @@ Wifi.prototype.connect = function (id) {
         }
       });
     }
+    if (this.options.verbose) console.log(`Attempting to connect to ${id}`);
     this._connectSocket(id)
       .then(() => {
+        if (this.options.verbose) console.log(`Connected to ${id}`);
         this._localName = id;
         this._connected = true;
         return this.syncInfo();
       })
       .then(() => {
+        if (this.options.verbose) console.log(`Synced into with ${id}`);
         resolve();
       })
       .catch((err) => {
@@ -296,11 +299,12 @@ Wifi.prototype.getBoardType = function () {
 };
 
 Wifi.prototype.getSampleRate = function () {
+  const numPattern = /\d+/g;
   return new Promise((resolve, reject) => {
     this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
       .then((res) => {
         if (_.includes(res, k.OBCIParseSuccess)) {
-          resolve(Number(res.substring(k.OBCIParseSuccess.length+2, res.length - 2)));
+          resolve(Number(res.match(numPattern)[0]));
         } else {
           reject(res);
         }
@@ -312,6 +316,7 @@ Wifi.prototype.getSampleRate = function () {
 };
 
 Wifi.prototype.setSampleRate = function (sampleRate) {
+  const numPattern = /\d+/g;
   return new Promise((resolve, reject) => {
     k.getSampleRateSetter(this._boardType, sampleRate)
       .then((cmds) => {
@@ -319,7 +324,7 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
       })
       .then((res) => {
         if (_.includes(res, k.OBCIParseSuccess)) {
-          this._sampleRate = Number(res.substring("Success: Sample rate is ".length, res.length - 4));
+          this._sampleRate = Number(res.match(numPattern)[0]);
           resolve(this._sampleRate);
         } else {
           reject(res);
@@ -469,12 +474,14 @@ Wifi.prototype.syncInfo = function () {
           settings['gain'] = info['gains'][index];
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
+        if (this.options.verbose) console.log(`Got all info from GET /board`);
         return this.getSampleRate();
       } catch (err) {
         return Promise.reject(err);
       }
     })
     .then((sampleRate) => {
+      if (this.options.verbose) console.log(`Sample rate is ${sampleRate}`);
       this._sampleRate = sampleRate;
       return Promise.resolve();
     })

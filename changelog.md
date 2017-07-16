@@ -1,3 +1,10 @@
+# 0.0.4
+
+### New Features
+
+* Switch `getSampleRate` and `setSampleRate` to regex parseing which adds support for ganglion now.
+* Started saving the wifi shields found so the user can pass a `localName` and the module will use the ip address to route to it. mDNS is too router dependent.
+
 # 0.0.3
 
 This actually seems to be generally working for cyton and ganglion. Daisy needs more testing.

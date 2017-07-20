@@ -646,46 +646,6 @@ Wifi.prototype.wifiInitServer = function () {
     socket.on('data', (data) => {
       this._processBytes(data);
     });
-    // socket.on('data', (data) => {
-      // this._processBytes(data);
-      // console.log(data.toString());
-      // streamJSON.write(data);
-      // if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
-      // else persistentBuffer = data;
-      //
-      // if (persistentBuffer) {
-      //   let bytesIn = persistentBuffer.byteLength;
-      //   if (bytesIn > 2) {
-      //     let head = 2;
-      //     let tail = 0;
-      //     while (head < bytesIn - 2) {
-      //       if (delimBuf.compare(persistentBuffer, head-2, head) === 0) {
-      //         try {
-      //           const obj = JSON.parse(persistentBuffer.slice(tail, head-2));
-      //           console.log(obj.chunk);
-      //           if (head < bytesIn - 2) {
-      //             tail = head;
-      //           }
-      //         } catch (e) {
-      //           console.log(persistentBuffer.slice(tail, head-2).toString());
-      //           persistentBuffer = persistentBuffer.slice(head);
-      //           return;
-      //         }
-      //
-      //       }
-      //       head++;
-      //     }
-      //
-      //     if (tail < bytesIn - 2) {
-      //       persistentBuffer = persistentBuffer.slice(tail);
-      //     } else {
-      //       persistentBuffer = null;
-      //     }
-      //
-      //   }
-      // }
-
-    // });
     socket.on('error', (err) => {
       if (this.options.verbose) console.log('SSDP:',err);
     });

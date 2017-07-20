@@ -1,3 +1,9 @@
+# 0.0.5
+
+### Enhancements
+
+* Bump utilities to 0.1.2
+
 # 0.0.4
 
 ### New Features

@@ -373,7 +373,7 @@ Wifi.prototype.searchStart = function () {
     this.wifiClient.on('response', (headers, code, rinfo) => {
       if (this.options.verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
       try {
-        const shieldName = `OpenBCI-${headers.SERVER.split('/')[2].split('-')[3]}`;
+        const shieldName = `OpenBCI-${headers.SERVER.split('/')[2].split('-')[2]}`;
         const shieldIpAddress = rinfo.address;
         const wifiShieldObject = {
           ipAddress: shieldIpAddress,

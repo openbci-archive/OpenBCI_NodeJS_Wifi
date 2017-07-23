@@ -1,3 +1,9 @@
+# 0.1.0
+
+### Breaking Change
+
+* Updated `localName` building for wifi v0.2.1+ where name changed to `PTW-0001-XXXX` where the last four are the last two bytes of the mac address.
+
 # 0.0.5
 
 ### Enhancements

@@ -26,6 +26,7 @@ const wifiOutputModeRaw = 'raw';
 const _options = {
   attempts: 10,
   debug: false,
+  latency: 20000,
   sendCounts: false,
   simulate: false,
   simulatorBoardFailure: false,
@@ -42,6 +43,9 @@ const _options = {
  * @property {Number} attempts  - The number of times to try and perform an SSDP search before quitting. (Default 10)
  *
  * @property {Boolean} debug  - Print out a raw dump of bytes sent and received. (Default `false`)
+ *
+ * @property {Number} latency - The latency, or amount of time between packet sends, of the WiFi shield. The time is in
+ *                      micro seconds!
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
  *           (Default `false`)
@@ -141,6 +145,7 @@ function Wifi (options, callback) {
   this._droppedPacketCounter = 0;
   this._firstPacket = true;
   this._info = null;
+  this._latency = this.options.latency;
   this._localName = null;
   this._lowerChannelsSampleObject = null;
   this._multiPacketBuffer = null;
@@ -162,6 +167,38 @@ function Wifi (options, callback) {
 
 // This allows us to use the emitter class freely outside of the module
 util.inherits(Wifi, EventEmitter);
+
+/**
+ * Used to auto find and connect to a single wifi shield on a local network.
+ * @param timeout {Number} - The time in milli seconds to wait for the system to try and auto find and connect to the
+ *  board.
+ * @return {Promise} - Resolves after successful connection, rejects otherwise with Error.
+ */
+Wifi.prototype.autoFindAndConnectToWifiShield = function (timeout) {
+  return new Promise((resolve, reject) => {
+    let autoFindTimeOut = null;
+    timeout = timeout | 10000;
+    this.once(k.OBCIEmitterWifiShield, (shield) => {
+      if (autoFindTimeOut) clearTimeout(autoFindTimeOut);
+      this.connect(shield.ipAddress)
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+          console.log(err);
+        });
+      this.searchStop().catch(console.log);
+    });
+    this.searchStart().catch(console.log);
+
+    autoFindTimeOut = setTimeout(() => {
+      this.searchStop().catch(console.log);
+      reject(Error(`Failed to autoFindAndConnectToWifiShield within ${timeout} ms`))
+    }, timeout);
+
+  });
+};
 
 /**
  * @description Send a command to the board to turn a specified channel off
@@ -470,7 +507,7 @@ Wifi.prototype.syncInfo = function () {
         this._boardType = info['board_type'];
 
         const channelSettings = k.channelSettingsArrayInit(this.getNumberOfChannels());
-        _.forEach(this._channelSettings, (settings, index) => {
+        _.forEach(channelSettings, (settings, index) => {
           settings['gain'] = info['gains'][index];
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
@@ -557,6 +594,10 @@ Wifi.prototype._processBytes = function (data) {
 
     this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
 
+    _.forEach(this._rawDataPacketToSample.rawDataPackets, (rawDataPacket) => {
+      this.emit(k.OBCIEmitterRawDataPacket, rawDataPacket);
+    });
+
     const samples = obciUtils.transformRawDataPacketsToSample(this._rawDataPacketToSample);
 
     _.forEach(samples, (sample) => {
@@ -617,7 +658,7 @@ Wifi.prototype._connectSocket = function (shieldIP) {
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
-    latency: "5000"
+    latency: this.options.latency
   });
 };
 

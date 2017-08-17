@@ -20,10 +20,26 @@ var wifi = new Wifi({
   sendCounts: false
 });
 
+let counter = 0;
+let sampleRateCounterInterval = null;
+let lastSampleNumber = 0;
+const MAX_SAMPLE_NUMBER = 255;
+
 const sampleFunc = (sample) => {
   try {
     if (sample.valid) {
-      console.log(sample.sampleNumber);
+      counter++;
+      if (sampleRateCounterInterval === null) {
+        sampleRateCounterInterval = setInterval(() => {
+          console.log(`SR: ${counter}`);
+          counter = 0;
+        }, 1000);
+      }
+      let packetDiff = sample.sampleNumber = lastSampleNumber;
+      if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
+      if (packetDiff > 0) console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
+      lastSampleNumber = sample.sampleNumber;
+      console.log(JSON.stringify(sample));
     }
   } catch (err) {
     console.log(err);
@@ -32,28 +48,14 @@ const sampleFunc = (sample) => {
 
 wifi.on('sample', sampleFunc);
 
-wifi.once('wifiShield', (shield) => {
-  wifi.connect(shield.ipAddress)
-    .then(() => {
-      if (wifi.getNumberOfChannels() === 4) {
-        console.log("setting sample rate to 1600 for ganglion");
-        return wifi.setSampleRate(1600);
-      } else {
-        console.log("setting sample rate to 1000 for cyton/daisy");
-        return wifi.setSampleRate(1000);
-      }
-    })
-    .then(() => {
-    console.log("sendign stream start");
-      return wifi.streamStart();
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-  wifi.searchStop().catch(console.log);
-});
-
-wifi.searchStart().catch(console.log);
+wifi.autoFindAndConnectToWifiShield()
+  .then(() => {
+    console.log("Wifi connected");
+    return wifi.streamStart();
+  })
+  .catch((err) => {
+    console.log(err);
+  });
 
 function exitHandler (options, err) {
   if (options.cleanup) {
@@ -63,18 +65,22 @@ function exitHandler (options, err) {
     wifi.removeAllListeners('rawDataPacket');
     wifi.removeAllListeners('sample');
     wifi.destroy();
+    if (sampleRateCounterInterval) {
+      clearInterval(sampleRateCounterInterval);
+    }
   }
   if (err) console.log(err.stack);
   if (options.exit) {
     if (verbose) console.log('exit');
     if (wifi.isStreaming()) {
-      setTimeout(() => {
+      let timmy = setTimeout(() => {
         console.log("timeout");
         process.exit(0);
       }, 1000);
       wifi.streamStop()
         .then(() => {
           console.log('stream stopped');
+          if (timmy) clearTimeout(timmy);
           process.exit(0);
         }).catch((err) => {
           console.log(err);

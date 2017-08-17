@@ -1,3 +1,10 @@
+# 0.1.1
+
+### New Features
+
+* Added function called `autoFindAndConnectToWifiShield()` which will automatically search the local network for wifi shields and connect to the first one it finds.
+* Add `latency` setting to default options
+
 # 0.1.0
 
 ### Breaking Change

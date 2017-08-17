@@ -447,6 +447,72 @@ Wifi.prototype.searchStop = function () {
 };
 
 /**
+ * @description Start logging to the SD card. If not streaming then `eot` event will be emitted with request
+ *      response from the board.
+ * @param recordingDuration {String} - The duration you want to log SD information for. Limited to:
+ *      '14sec', '5min', '15min', '30min', '1hour', '2hour', '4hour', '12hour', '24hour'
+ * @returns {Promise} - Resolves when the command has been written.
+ * @private
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype.sdStart = function (recordingDuration) {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnected()) return reject(Error('Must be connected to the device'));
+    k.sdSettingForString(recordingDuration)
+      .then(command => {
+        return this.write(command);
+      })
+      .then((res) => {
+        resolve(res);
+      })
+      .catch(err => reject(err));
+  });
+};
+
+/**
+ * @description Sends the stop SD logging command to the board. If not streaming then `eot` event will be emitted
+ *      with request response from the board.
+ * @returns {Promise} - Resolves when written
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype.sdStop = function () {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnected()) return reject(Error('Must be connected to the device'));
+    // If we are not streaming, then expect a confirmation message back from the board
+    this.write(k.OBCISDLogStop)
+      .then((res) => {
+        if (this.options.verbose) console.log('Sent sd stop to board.');
+        resolve(res);
+      })
+      .catch(reject);
+  });
+};
+
+/**
+ * @description Syncs the internal channel settings object with a cyton, this will take about
+ *  over a second because there are delays between the register reads in the firmware.
+ * @returns {Promise.<T>|*} Resolved once synced, rejects on error or 2 second timeout
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype.syncRegisterSettings = function () {
+  return new Promise((resolve, reject) => {
+    this.write(k.OBCIMiscQueryRegisterSettings)
+      .then((res) => {
+        this._rawDataPacketToSample.data = Buffer.from(res);
+        try {
+          obciUtils.syncChannelSettingsWithRawData(this._rawDataPacketToSample);
+          resolve(this._rawDataPacketToSample.channelSettings);
+        } catch (e) {
+          reject(e);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      });
+  });
+};
+
+/**
  * @description Sends a soft reset command to the board
  * @returns {Promise} - Fulfilled if the command was sent to board.
  * @author AJ Keller (@pushtheworldllc)

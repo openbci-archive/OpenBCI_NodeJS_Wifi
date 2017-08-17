@@ -1,3 +1,9 @@
+# 0.1.2
+
+### New Features
+
+* Add `sdStart`, `sdStop`, and `syncRegisterSettings`
+
 # 0.1.1
 
 ### New Features

@@ -1,3 +1,9 @@
+# 0.1.3
+
+### New Features
+
+* Add `channelSet` function
+
 # 0.1.2
 
 ### New Features

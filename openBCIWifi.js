@@ -513,6 +513,41 @@ Wifi.prototype.syncRegisterSettings = function () {
 };
 
 /**
+ * @description To send a channel setting command to the board
+ * @param channelNumber - Number (1-16)
+ * @param powerDown - Bool (true -> OFF, false -> ON (default))
+ *          turns the channel on or off
+ * @param gain - Number (1,2,4,6,8,12,24(default))
+ *          sets the gain for the channel
+ * @param inputType - String (normal,shorted,biasMethod,mvdd,temp,testsig,biasDrp,biasDrn)
+ *          selects the ADC channel input source
+ * @param bias - Bool (true -> Include in bias (default), false -> remove from bias)
+ *          selects to include the channel input in bias generation
+ * @param srb2 - Bool (true -> Connect this input to SRB2 (default),
+ *                     false -> Disconnect this input from SRB2)
+ *          Select to connect (true) this channel's P input to the SRB2 pin. This closes
+ *              a switch between P input and SRB2 for the given channel, and allows the
+ *              P input to also remain connected to the ADC.
+ * @param srb1 - Bool (true -> connect all N inputs to SRB1,
+ *                     false -> Disconnect all N inputs from SRB1 (default))
+ *          Select to connect (true) all channels' N inputs to SRB1. This effects all pins,
+ *              and disconnects all N inputs from the ADC.
+ * @returns {Promise} resolves if sent, rejects on bad input or no board
+ * @author AJ Keller (@pushtheworldllc)
+ */
+Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType, bias, srb2, srb1) {
+  let arrayOfCommands = [];
+  return new Promise((resolve, reject) => {
+    k.getChannelSetter(channelNumber, powerDown, gain, inputType, bias, srb2, srb1)
+      .then((val) => {
+        arrayOfCommands = val.commandArray;
+        this._rawDataPacketToSample.channelSettings[channelNumber - 1] = val.newChannelSettingsObject;
+        return this.write(arrayOfCommands.join(''));
+      }).then(resolve, reject);
+  });
+};
+
+/**
  * @description Sends a soft reset command to the board
  * @returns {Promise} - Fulfilled if the command was sent to board.
  * @author AJ Keller (@pushtheworldllc)

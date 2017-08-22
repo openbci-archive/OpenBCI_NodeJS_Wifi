@@ -1,3 +1,9 @@
+# 0.1.4
+
+### Enhancements
+
+* Bump `openbci-utilities` to v0.2.0 for accelDataCounts support on cyton.
+
 # 0.1.3
 
 ### New Features

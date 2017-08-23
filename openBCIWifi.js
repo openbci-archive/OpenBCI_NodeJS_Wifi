@@ -253,7 +253,7 @@ Wifi.prototype.connect = function (id) {
         return this.syncInfo();
       })
       .then(() => {
-        if (this.options.verbose) console.log(`Synced into with ${id}`);
+        if (this.options.verbose) console.log(`Synced info with ${id}`);
         resolve();
       })
       .catch((err) => {

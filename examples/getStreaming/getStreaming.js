@@ -17,7 +17,8 @@ var Wifi = require('../../index').Wifi;
 var wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: false
+  sendCounts: true,
+  latency: 10000
 });
 
 let counter = 0;
@@ -49,6 +50,9 @@ const sampleFunc = (sample) => {
 wifi.on('sample', sampleFunc);
 
 wifi.autoFindAndConnectToWifiShield()
+  .then(() => {
+    return wifi.setSampleRate(1000);
+  })
   .then(() => {
     console.log("Wifi connected");
     return wifi.streamStart();

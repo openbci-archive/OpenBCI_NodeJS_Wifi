@@ -557,6 +557,28 @@ Wifi.prototype.softReset = function () {
 };
 
 /**
+ * @description Tells the WiFi Shield to forget it's network credentials. This will cause the board to drop all
+ *  connections.
+ * @returns {Promise} Resolves when WiFi Shield has been reset and the module disconnects.
+ */
+Wifi.prototype.eraseWifiCredentials = function () {
+  return new Promise((resolve, reject) => {
+    this.delete(this._localName, '/wifi')
+      .then((res) => {
+        if (this.options.verbose) console.log(res);
+        return this.disconnect();
+      })
+      .then(() => {
+        resolve();
+      })
+      .catch((err) => {
+        if (this.options.verbose) console.log(err);
+        reject(err);
+      })
+  });
+};
+
+/**
  * @description Sends a start streaming command to the board.
  * @returns {Promise} indicating if the signal was able to be sent.
  * Note: You must have successfully connected to an OpenBCI board using the connect
@@ -817,6 +839,92 @@ Wifi.prototype.processResponse = function (res, cb) {
   });
 };
 
+Wifi.prototype._delete = function (host, path, cb) {
+  const options = {
+    host: host,
+    port: 80,
+    path: path,
+    method: 'DELETE'
+  };
+
+  const req = http.request(options, (res) => {
+    this.processResponse(res, (err) => {
+      if (err) {
+        if (cb) cb(err);
+      } else {
+        if (cb) cb();
+      }
+    });
+  });
+
+  req.once('error', (e) => {
+    if (this.options.verbose) console.log(`DELETE problem with request: ${e.message}`);
+    if (cb) cb(e);
+  });
+
+  req.end();
+};
+
+Wifi.prototype.delete = function (host, path) {
+  return new Promise((resolve, reject) => {
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._delete(host, path, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
+};
+
+Wifi.prototype._get = function (host, path, cb) {
+  const options = {
+    host: host,
+    port: 80,
+    path: path,
+    method: 'GET'
+  };
+
+  const req = http.request(options, (res) => {
+    this.processResponse(res, (err) => {
+      if (err) {
+        if (cb) cb(err);
+      } else {
+        if (cb) cb();
+      }
+    });
+  });
+
+  req.once('error', (e) => {
+    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
+    if (cb) cb(e);
+  });
+
+  req.end();
+};
+
+Wifi.prototype.get = function (host, path) {
+  return new Promise((resolve, reject) => {
+    const resFunc = (res) => {
+      resolve(res);
+    };
+    this.once('res', resFunc);
+    this._get(host, path, (err) => {
+      if (err) {
+        if (this.options.verbose) {
+          this.removeListener('res', resFunc);
+          reject(err);
+        }
+      }
+    })
+  });
+};
+
 Wifi.prototype._post = function (host, path, payload, cb) {
   const output = JSON.stringify(payload);
   const options = {
@@ -858,50 +966,6 @@ Wifi.prototype.post = function (host, path, payload) {
     };
     this.once('res', resFunc);
     this._post(host, path, payload, (err) => {
-      if (err) {
-        if (this.options.verbose) {
-          this.removeListener('res', resFunc);
-          reject(err);
-        }
-      }
-    })
-  });
-};
-
-
-Wifi.prototype._get = function (host, path, cb) {
-  const options = {
-    host: host,
-    port: 80,
-    path: path,
-    method: 'GET'
-  };
-
-  const req = http.request(options, (res) => {
-    this.processResponse(res, (err) => {
-      if (err) {
-        if (cb) cb(err);
-      } else {
-        if (cb) cb();
-      }
-    });
-  });
-
-  req.once('error', (e) => {
-    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
-    if (cb) cb(e);
-  });
-
-  req.end();
-};
-
-Wifi.prototype.get = function (host, path) {
-  return new Promise((resolve, reject) => {
-    const resFunc = (res) => {
-      resolve(res);
-    };
-    this.once('res', resFunc);
-    this._get(host, path, (err) => {
       if (err) {
         if (this.options.verbose) {
           this.removeListener('res', resFunc);

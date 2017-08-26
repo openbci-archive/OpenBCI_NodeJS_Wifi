@@ -1,3 +1,9 @@
+# 0.1.5
+
+### New Features
+
+* Added function for telling teh WiFi Shield to forget it's credentials and turn back into an access point, aka broad casting it's unique name ready for someone to connect and have it join another network.
+
 # 0.1.4
 
 ### Enhancements

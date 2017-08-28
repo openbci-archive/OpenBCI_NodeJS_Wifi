@@ -17,16 +17,18 @@ var Wifi = require('../../index').Wifi;
 var wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: false
+  sendCounts: false,
+  latency: 10000
 });
 
 let counter = 0;
 let sampleRateCounterInterval = null;
 let lastSampleNumber = 0;
-const MAX_SAMPLE_NUMBER = 255;
+let MAX_SAMPLE_NUMBER = 255;
 
 const sampleFunc = (sample) => {
   try {
+    console.log(sample);
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
@@ -35,9 +37,10 @@ const sampleFunc = (sample) => {
           counter = 0;
         }, 1000);
       }
-      let packetDiff = sample.sampleNumber = lastSampleNumber;
+
+      let packetDiff = sample.sampleNumber - lastSampleNumber;
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
-      if (packetDiff > 0) console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
+      if (packetDiff > 1) console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
       lastSampleNumber = sample.sampleNumber;
       console.log(JSON.stringify(sample));
     }
@@ -46,15 +49,27 @@ const sampleFunc = (sample) => {
   }
 };
 
-wifi.on('sample', sampleFunc);
+wifi.on(k.OBCIEmitterImpedance, (impedance) => {
+  console.log(JSON.stringify(impedance));
+});
+wifi.on(k.OBCIEmitterSample, sampleFunc);
+// wifi.on(k.OBCIEmitterRawDataPacket, console.log);
 
-wifi.autoFindAndConnectToWifiShield()
+wifi.searchToStream({
+    streamStart: true
+  })
   .then(() => {
-    console.log("Wifi connected");
-    return wifi.streamStart();
+    if (wifi.getNumberOfChannels() === k.OBCINumberOfChannelsGanglion) {
+      MAX_SAMPLE_NUMBER = 200;
+      return wifi.setSampleRate(800);
+    } else {
+      MAX_SAMPLE_NUMBER = 255;
+      return wifi.setSampleRate(1000);
+    }
   })
   .catch((err) => {
     console.log(err);
+    process.exit(0);
   });
 
 function exitHandler (options, err) {
@@ -86,6 +101,8 @@ function exitHandler (options, err) {
           console.log(err);
           process.exit(0);
         });
+    } else {
+      process.exit(0);
     }
   }
 }

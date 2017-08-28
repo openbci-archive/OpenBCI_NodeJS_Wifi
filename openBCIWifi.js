@@ -27,6 +27,7 @@ const _options = {
   attempts: 10,
   debug: false,
   latency: 20000,
+  sampleRate: 0,
   sendCounts: false,
   simulate: false,
   simulatorBoardFailure: false,
@@ -46,6 +47,8 @@ const _options = {
  *
  * @property {Number} latency - The latency, or amount of time between packet sends, of the WiFi shield. The time is in
  *                      micro seconds!
+ *
+ * @property {Number} sampleRate - The sample rate to set the board to. (Default is zero)
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
  *           (Default `false`)
@@ -80,7 +83,7 @@ const _options = {
  * @param callback {function} (optional) - A callback function used to determine if the noble module was able to be started.
  *    This can be very useful on Windows when there is no compatible BLE device found.
  * @constructor
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 function Wifi (options, callback) {
   if (!(this instanceof Wifi)) {
@@ -152,6 +155,7 @@ function Wifi (options, callback) {
   this._numberOfChannels = 0;
   this._packetCounter = 0;
   this._peripheral = null;
+  this._sampleRate = this.options.sampleRate;
   this._scanning = false;
   this._streaming = false;
 
@@ -169,42 +173,10 @@ function Wifi (options, callback) {
 util.inherits(Wifi, EventEmitter);
 
 /**
- * Used to auto find and connect to a single wifi shield on a local network.
- * @param timeout {Number} - The time in milli seconds to wait for the system to try and auto find and connect to the
- *  board.
- * @return {Promise} - Resolves after successful connection, rejects otherwise with Error.
- */
-Wifi.prototype.autoFindAndConnectToWifiShield = function (timeout) {
-  return new Promise((resolve, reject) => {
-    let autoFindTimeOut = null;
-    timeout = timeout | 10000;
-    this.once(k.OBCIEmitterWifiShield, (shield) => {
-      if (autoFindTimeOut) clearTimeout(autoFindTimeOut);
-      this.connect(shield.ipAddress)
-        .then(() => {
-          resolve();
-        })
-        .catch((err) => {
-          reject(err);
-          console.log(err);
-        });
-      this.searchStop().catch(console.log);
-    });
-    this.searchStart().catch(console.log);
-
-    autoFindTimeOut = setTimeout(() => {
-      this.searchStop().catch(console.log);
-      reject(Error(`Failed to autoFindAndConnectToWifiShield within ${timeout} ms`))
-    }, timeout);
-
-  });
-};
-
-/**
  * @description Send a command to the board to turn a specified channel off
  * @param channelNumber
  * @returns {Promise.<T>}
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.channelOff = function (channelNumber) {
   return k.commandChannelOff(channelNumber).then((charCommand) => {
@@ -217,7 +189,7 @@ Wifi.prototype.channelOff = function (channelNumber) {
  * @description Send a command to the board to turn a specified channel on
  * @param channelNumber
  * @returns {Promise.<T>|*}
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.channelOn = function (channelNumber) {
   return k.commandChannelOn(channelNumber).then((charCommand) => {
@@ -231,7 +203,7 @@ Wifi.prototype.channelOn = function (channelNumber) {
  *              ble connection to the OpenBCI ganglion board.
  * @param id {String | Object} - a string local name or peripheral object
  * @returns {Promise} If the board was able to connect.
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.connect = function (id) {
   return new Promise((resolve, reject) => {
@@ -268,7 +240,7 @@ Wifi.prototype.connect = function (id) {
  * @description Closes the connection to the board. Waits for stop streaming command to
  *  be sent if currently streaming.
  * @returns {Promise} - fulfilled by a successful close, rejected otherwise.
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.disconnect = function () {
   this._disconnected();
@@ -317,17 +289,6 @@ Wifi.prototype.isStreaming = function () {
 };
 
 /**
- * @description This function is used as a convenience method to determine how many
- *              channels the current board is using.
- * @returns {Number} A number
- * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
- * @author AJ Keller (@pushtheworldllc)
- */
-Wifi.prototype.getNumberOfChannels = function () {
-  return this._numberOfChannels;
-};
-
-/**
  * @description Get the current board type
  * @returns {*}
  */
@@ -335,23 +296,89 @@ Wifi.prototype.getBoardType = function () {
   return this._boardType;
 };
 
+/**
+ * @description This function is used as a convenience method to determine how many
+ *              channels the current board is using.
+ * @returns {Number} A number
+ * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
+ * @author AJ Keller (@aj-ptw)
+ */
+Wifi.prototype.getNumberOfChannels = function () {
+  return this._numberOfChannels;
+};
+
+/**
+ * @description Get the the current sample rate is.
+ * @returns {Number} The sample rate
+ * Note: This is dependent on if you configured the board correctly on setup options
+ */
 Wifi.prototype.getSampleRate = function () {
-  const numPattern = /\d+/g;
+  return this._sampleRate;
+};
+
+/**
+ * Used to search for an OpenBCI WiFi Shield. Will connect to the first one if no `shieldName` is supplied.
+ * @param o {Object} (optional)
+ * @param o.sampleRate - The sample rate to set the board connected to the wifi shield
+ * @param o.shieldName {String} - If supplied, will search for a shield by this name, if not supplied, will connect to
+ *  the first shield found.
+ * @param o.streamStart {Boolean} - Set `true` if you want the board to start streaming.
+ * @param o.timeout {Number} - The time in milli seconds to wait for the system to try and auto find and connect to the
+ *  shield.
+ * @return {Promise} - Resolves after successful connection, rejects otherwise with Error.
+ */
+Wifi.prototype.searchToStream = function (o) {
   return new Promise((resolve, reject) => {
-    this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
-      .then((res) => {
-        if (_.includes(res, k.OBCIParseSuccess)) {
-          resolve(Number(res.match(numPattern)[0]));
-        } else {
-          reject(res);
-        }
-      })
-      .catch((err) => {
-        reject(err);
-      })
+    let autoFindTimeOut = null;
+    let timeout = 10000;
+    if (o.hasOwnProperty('timeout')) timeout = o.timeout;
+    this.once(k.OBCIEmitterWifiShield, (shield) => {
+      if (o.hasOwnProperty('shieldName')) {
+        if (!_.eq(o.shieldName, shield.localName)) return;
+      }
+      if (autoFindTimeOut) clearTimeout(autoFindTimeOut);
+      this.connect(shield.ipAddress)
+        .then(() => {
+          if (o.hasOwnProperty('sampleRate')) {
+            if (o.streamStart) {
+              if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
+              return this.setSampleRate(o.sampleRate);
+            }
+          }
+          return Promise.resolve();
+        })
+        .then(() => {
+          if (o.hasOwnProperty('streamStart')) {
+            if (this.options.verbose) console.log('Attempting to start stream');
+            return this.streamStart();
+          } else {
+            return Promise.resolve();
+          }
+        })
+        .then(() => {
+          if (this.options.verbose) console.log('Done with search connect and sync');
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+          console.log(err);
+        });
+      this.searchStop().catch(console.log);
+    });
+    this.searchStart().catch(console.log);
+
+    autoFindTimeOut = setTimeout(() => {
+      this.searchStop().catch(console.log);
+      reject(Error(`Failed to autoFindAndConnectToWifiShield within ${timeout} ms`));
+    }, timeout);
   });
 };
 
+/**
+ * Set the sample rate of the remote OpenBCI shield
+ * @param sampleRate {Number} the sample rate you want to set to.
+ * @returns {Promise}
+ */
 Wifi.prototype.setSampleRate = function (sampleRate) {
   const numPattern = /\d+/g;
   return new Promise((resolve, reject) => {
@@ -374,12 +401,25 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
 };
 
 /**
- * @description Get the the current sample rate is.
- * @returns {Number} The sample rate
- * Note: This is dependent on if you configured the board correctly on setup options
+ * Returns the sample rate from the board
+ * @returns {Promise}
  */
-Wifi.prototype.sampleRate = function () {
-  return this._sampleRate;
+Wifi.prototype.syncSampleRate = function () {
+  const numPattern = /\d+/g;
+  return new Promise((resolve, reject) => {
+    this.write(`${k.OBCISampleRateSet}${k.OBCISampleRateCmdGetCur}`)
+      .then((res) => {
+        if (_.includes(res, k.OBCIParseSuccess)) {
+          this._sampleRate = Number(res.match(numPattern)[0]);
+          resolve(this._sampleRate);
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
 };
 
 /**
@@ -453,7 +493,7 @@ Wifi.prototype.searchStop = function () {
  *      '14sec', '5min', '15min', '30min', '1hour', '2hour', '4hour', '12hour', '24hour'
  * @returns {Promise} - Resolves when the command has been written.
  * @private
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.sdStart = function (recordingDuration) {
   return new Promise((resolve, reject) => {
@@ -473,7 +513,7 @@ Wifi.prototype.sdStart = function (recordingDuration) {
  * @description Sends the stop SD logging command to the board. If not streaming then `eot` event will be emitted
  *      with request response from the board.
  * @returns {Promise} - Resolves when written
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.sdStop = function () {
   return new Promise((resolve, reject) => {
@@ -492,7 +532,7 @@ Wifi.prototype.sdStop = function () {
  * @description Syncs the internal channel settings object with a cyton, this will take about
  *  over a second because there are delays between the register reads in the firmware.
  * @returns {Promise.<T>|*} Resolved once synced, rejects on error or 2 second timeout
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.syncRegisterSettings = function () {
   return new Promise((resolve, reject) => {
@@ -533,7 +573,7 @@ Wifi.prototype.syncRegisterSettings = function () {
  *          Select to connect (true) all channels' N inputs to SRB1. This effects all pins,
  *              and disconnects all N inputs from the ADC.
  * @returns {Promise} resolves if sent, rejects on bad input or no board
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType, bias, srb2, srb1) {
   let arrayOfCommands = [];
@@ -550,7 +590,7 @@ Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType,
 /**
  * @description Sends a soft reset command to the board
  * @returns {Promise} - Fulfilled if the command was sent to board.
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.softReset = function () {
   return this.write(k.OBCIMiscSoftReset);
@@ -562,7 +602,7 @@ Wifi.prototype.softReset = function () {
  * Note: You must have successfully connected to an OpenBCI board using the connect
  *           method. Just because the signal was able to be sent to the board, does not
  *           mean the board will start streaming.
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.streamStart = function () {
   return new Promise((resolve, reject) => {
@@ -583,7 +623,7 @@ Wifi.prototype.streamStart = function () {
  * Note: You must have successfully connected to an OpenBCI board using the connect
  *           method. Just because the signal was able to be sent to the board, does not
  *           mean the board stopped streaming.
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.streamStop = function () {
   return new Promise((resolve, reject) => {
@@ -597,6 +637,10 @@ Wifi.prototype.streamStop = function () {
   });
 };
 
+/**
+ * Sync the info of this wifi module
+ * @returns {Promise.<TResult>}
+ */
 Wifi.prototype.syncInfo = function () {
   return this.get(this._localName, '/board')
     .then((info) => {
@@ -633,7 +677,7 @@ Wifi.prototype.syncInfo = function () {
  * @description Used to send data to the board.
  * @param data {Array | Buffer | Number | String} - The data to write out
  * @returns {Promise} - fulfilled if command was able to be sent
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
@@ -701,14 +745,23 @@ Wifi.prototype._processBytes = function (data) {
 
     const samples = obciUtils.transformRawDataPacketsToSample(this._rawDataPacketToSample);
 
-    _.forEach(samples, (sample) => {
-      if (this.getBoardType() === k.OBCIBoardDaisy) {
-        // Send the sample for downstream sample compaction
-        this._finalizeNewSampleForDaisy(sample);
+    if (samples.length > 0) {
+      if (samples[0].hasOwnProperty('impedanceValue')) {
+        _.forEach(samples, (impedance) => {
+          this.emit(k.OBCIEmitterImpedance, impedance);
+        });
       } else {
-        this.emit(k.OBCIEmitterSample, sample);
+        _.forEach(samples, (sample) => {
+          if (this.getBoardType() === k.OBCIBoardDaisy) {
+            // Send the sample for downstream sample compaction
+            this._finalizeNewSampleForDaisy(sample);
+          } else {
+            // console.log(JSON.stringify(sample));
+            this.emit(k.OBCIEmitterSample, sample);
+          }
+        });
       }
-    });
+    }
 
     // Prevent bad data from being carried through continuously
     if (this.buffer) {
@@ -727,7 +780,7 @@ Wifi.prototype._processBytes = function (data) {
  *      missedPacket counter. Further missedPacket will increase if two odd sampleNumber packets arrive in a row.
  * @param sampleObject {Object} - The sample object to finalize
  * @private
- * @author AJ Keller (@pushtheworldllc)
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
   if (k.isNull(this._lowerChannelsSampleObject)) {

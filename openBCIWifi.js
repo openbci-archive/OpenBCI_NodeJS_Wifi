@@ -80,19 +80,12 @@ const _options = {
 /**
  * @description The initialization method to call first, before any other method.
  * @param options {InitializationObject} (optional) - Board optional configurations.
- * @param callback {function} (optional) - A callback function used to determine if the noble module was able to be started.
- *    This can be very useful on Windows when there is no compatible BLE device found.
  * @constructor
  * @author AJ Keller (@aj-ptw)
  */
-function Wifi (options, callback) {
+function Wifi (options) {
   if (!(this instanceof Wifi)) {
-    return new Wifi(options, callback);
-  }
-
-  if (options instanceof Function) {
-    callback = options;
-    options = {};
+    return new Wifi(options);
   }
 
   options = (typeof options !== 'function') && options || {};
@@ -147,9 +140,9 @@ function Wifi (options, callback) {
   this._connected = false;
   this._droppedPacketCounter = 0;
   this._firstPacket = true;
+  this._ipAddress = null;
   this._info = null;
   this._latency = this.options.latency;
-  this._localName = null;
   this._lowerChannelsSampleObject = null;
   this._multiPacketBuffer = null;
   this._numberOfChannels = 0;
@@ -157,6 +150,7 @@ function Wifi (options, callback) {
   this._peripheral = null;
   this._sampleRate = this.options.sampleRate;
   this._scanning = false;
+  this._shieldName = null;
   this._streaming = false;
 
   /** Public Properties (keep alphabetical) */
@@ -166,7 +160,6 @@ function Wifi (options, callback) {
   /** Initializations */
 
   this.wifiInitServer();
-  if (callback) callback();
 }
 
 // This allows us to use the emitter class freely outside of the module
@@ -201,35 +194,58 @@ Wifi.prototype.channelOn = function (channelNumber) {
 /**
  * @description The essential precursor method to be called initially to establish a
  *              ble connection to the OpenBCI ganglion board.
- * @param id {String | Object} - a string local name or peripheral object
+ * @param o {Object}
+ * @param o.ipAddress {String} - The ip address of the shield if you know it
+ * @param o.sampleRate - The sample rate to set the board connected to the wifi shield
+ * @param o.shieldName {String} - If supplied, will search for a shield by this name, if not supplied, will connect to
+ *  the first shield found.
+ * @param o.streamStart {Boolean} - Set `true` if you want the board to start streaming.
  * @returns {Promise} If the board was able to connect.
  * @author AJ Keller (@aj-ptw)
  */
-Wifi.prototype.connect = function (id) {
+Wifi.prototype.connect = function (o) {
   return new Promise((resolve, reject) => {
-    if (_.isObject(id)) {
-      id = id.ipAddress;
-    } else if (_.includes(id.toLowerCase(), "openbci")) {
+    if (o.hasOwnProperty('ipAddress')) {
+      this._ipAddress = o.ipAddress;
+    } else if (o.hasOwnProperty('shieldName')) {
       _.forEach(this.wifiShieldArray, (shield) => {
-        if (shield.localName === id) {
-          id = shield.ipAddress;
+        if (shield.localName === o.shieldName) {
+          this._ipAddress = shield.ipAddress;
         }
       });
     }
-    if (this.options.verbose) console.log(`Attempting to connect to ${id}`);
-    this._connectSocket(id)
+    if (this.options.verbose) console.log(`Attempting to connect to ${o.ipAddress}`);
+    this._connectSocket(this._ipAddress)
       .then(() => {
-        if (this.options.verbose) console.log(`Connected to ${id}`);
-        this._localName = id;
+        if (this.options.verbose) console.log(`Connected to ${o.ipAddress}`);
         this._connected = true;
         return this.syncInfo();
       })
       .then(() => {
-        if (this.options.verbose) console.log(`Synced into with ${id}`);
+        if (this.options.verbose) console.log(`Synced into with ${this._shieldName}`);
+        if (o.hasOwnProperty('sampleRate')) {
+          if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
+          return this.setSampleRate(o.sampleRate);
+        }
+        return this.getSampleRate();
+      })
+      .then((sampleRate) => {
+        if (this.options.verbose) console.log(`Sample rate is ${sampleRate}`);
+        this._sampleRate = sampleRate;
+        if (o.hasOwnProperty('streamStart')) {
+          if (o.streamStart) {
+            if (this.options.verbose) console.log('Attempting to start stream');
+            return this.streamStart();
+          }
+        }
+        return Promise.resolve();
+      })
+      .then(() => {
         resolve();
       })
       .catch((err) => {
-        this._localName = null;
+        this._ipAddress = null;
+        this._shieldName = null;
         this._connected = false;
         reject(err);
       });
@@ -249,11 +265,11 @@ Wifi.prototype.disconnect = function () {
 };
 
 /**
- * Return the local name of the attached Wifi device.
+ * Return the shield name of the attached WiFi Shield device.
  * @return {null|String}
  */
-Wifi.prototype.getLocalName = function () {
-  return this._localName;
+Wifi.prototype.getShieldName = function () {
+  return this._shieldName;
 };
 
 /**
@@ -337,23 +353,10 @@ Wifi.prototype.searchToStream = function (o) {
         if (!_.eq(o.shieldName, shield.localName)) return;
       }
       if (autoFindTimeOut) clearTimeout(autoFindTimeOut);
-      this.connect(shield.ipAddress)
+      o['ipAddress'] = shield.ipAddress;
+      this.searchStop()
         .then(() => {
-          if (o.hasOwnProperty('sampleRate')) {
-            if (o.streamStart) {
-              if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
-              return this.setSampleRate(o.sampleRate);
-            }
-          }
-          return Promise.resolve();
-        })
-        .then(() => {
-          if (o.hasOwnProperty('streamStart')) {
-            if (this.options.verbose) console.log('Attempting to start stream');
-            return this.streamStart();
-          } else {
-            return Promise.resolve();
-          }
+          return this.connect(o);
         })
         .then(() => {
           if (this.options.verbose) console.log('Done with search connect and sync');
@@ -363,7 +366,6 @@ Wifi.prototype.searchToStream = function (o) {
           reject(err);
           console.log(err);
         });
-      this.searchStop().catch(console.log);
     });
     this.searchStart().catch(console.log);
 
@@ -642,7 +644,8 @@ Wifi.prototype.streamStop = function () {
  * @returns {Promise.<TResult>}
  */
 Wifi.prototype.syncInfo = function () {
-  return this.get(this._localName, '/board')
+  let boardInfo;
+  return this.get(this._ipAddress, '/board')
     .then((info) => {
       try {
         info = JSON.parse(info);
@@ -657,15 +660,16 @@ Wifi.prototype.syncInfo = function () {
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
         if (this.options.verbose) console.log(`Got all info from GET /board`);
-        return this.getSampleRate();
+        boardInfo = info;
+        return this.get(this._ipAddress, '/all');
       } catch (err) {
         return Promise.reject(err);
       }
     })
-    .then((sampleRate) => {
-      if (this.options.verbose) console.log(`Sample rate is ${sampleRate}`);
-      this._sampleRate = sampleRate;
-      return Promise.resolve();
+    .then((allInfo) => {
+      allInfo = JSON.parse(allInfo);
+      this._shieldName = allInfo.name;
+      return Promise.resolve(boardInfo);
     })
     .catch((err) => {
       console.log(err);
@@ -681,7 +685,7 @@ Wifi.prototype.syncInfo = function () {
  */
 Wifi.prototype.write = function (data) {
   return new Promise((resolve, reject) => {
-    if (this._localName) {
+    if (this._ipAddress) {
       if (!Buffer.isBuffer(data)) {
         if (_.isArray(data)) {
           data = Buffer.alloc(data.length, data.join(''));
@@ -690,7 +694,7 @@ Wifi.prototype.write = function (data) {
         }
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post(this._localName, '/command', {'command': data.toString()})
+      this.post(this._ipAddress, '/command', {'command': data.toString()})
         .then((res) => {
           resolve(res);
         })

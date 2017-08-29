@@ -9,12 +9,12 @@
  *   do `npm install`
  *   then `npm start`
  */
-var debug = false; // Pretty print any bytes in and out... it's amazing...
-var verbose = true; // Adds verbosity to functions
+let debug = false; // Pretty print any bytes in and out... it's amazing...
+let verbose = true; // Adds verbosity to functions
 
 const k = require('openbci-utilities').Constants;
-var Wifi = require('../../index').Wifi;
-var wifi = new Wifi({
+let Wifi = require('../../openBCIWifi');
+let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
   sendCounts: false,
@@ -28,7 +28,7 @@ let MAX_SAMPLE_NUMBER = 255;
 
 const sampleFunc = (sample) => {
   try {
-    console.log(sample);
+    // console.log(sample);
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
@@ -42,7 +42,7 @@ const sampleFunc = (sample) => {
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
       if (packetDiff > 1) console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
       lastSampleNumber = sample.sampleNumber;
-      console.log(JSON.stringify(sample));
+      // console.log(JSON.stringify(sample));
     }
   } catch (err) {
     console.log(err);
@@ -59,12 +59,10 @@ wifi.searchToStream({
     streamStart: true
   })
   .then(() => {
-    if (wifi.getNumberOfChannels() === k.OBCINumberOfChannelsGanglion) {
+    if (wifi.getNumberOfChannels() === 4) {
       MAX_SAMPLE_NUMBER = 200;
-      return wifi.setSampleRate(800);
     } else {
       MAX_SAMPLE_NUMBER = 255;
-      return wifi.setSampleRate(1000);
     }
   })
   .catch((err) => {

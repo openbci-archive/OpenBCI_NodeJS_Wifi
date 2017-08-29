@@ -1,3 +1,9 @@
+# 0.2.0
+
+### Breaking changes
+
+* Update `autoFindAndConnectToWifiShield()` to be called `searchToStream` and upgraded it's power! Checkout the source code for how to use the function.
+
 # 0.1.4
 
 ### Enhancements

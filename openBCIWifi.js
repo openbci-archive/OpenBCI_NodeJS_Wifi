@@ -26,7 +26,7 @@ const wifiOutputModeRaw = 'raw';
 const _options = {
   attempts: 10,
   debug: false,
-  latency: 20000,
+  latency: 10000,
   sampleRate: 0,
   sendCounts: false,
   simulate: false,
@@ -136,6 +136,8 @@ function Wifi (options) {
 
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
+  this._allInfo = null;
+  this._boardInfo = null;
   this._boardType = k.OBCIBoardNone;
   this._connected = false;
   this._droppedPacketCounter = 0;
@@ -144,6 +146,7 @@ function Wifi (options) {
   this._info = null;
   this._latency = this.options.latency;
   this._lowerChannelsSampleObject = null;
+  this._macAddress = null;
   this._multiPacketBuffer = null;
   this._numberOfChannels = 0;
   this._packetCounter = 0;
@@ -151,7 +154,9 @@ function Wifi (options) {
   this._sampleRate = this.options.sampleRate;
   this._scanning = false;
   this._shieldName = null;
+  this._shieldName = null;
   this._streaming = false;
+  this._version = null;
 
   /** Public Properties (keep alphabetical) */
   this.curOutputMode = wifiOutputModeRaw;
@@ -192,10 +197,65 @@ Wifi.prototype.channelOn = function (channelNumber) {
 };
 
 /**
+ * @description To send a channel setting command to the board
+ * @param channelNumber - Number (1-16)
+ * @param powerDown - Bool (true -> OFF, false -> ON (default))
+ *          turns the channel on or off
+ * @param gain - Number (1,2,4,6,8,12,24(default))
+ *          sets the gain for the channel
+ * @param inputType - String (normal,shorted,biasMethod,mvdd,temp,testsig,biasDrp,biasDrn)
+ *          selects the ADC channel input source
+ * @param bias - Bool (true -> Include in bias (default), false -> remove from bias)
+ *          selects to include the channel input in bias generation
+ * @param srb2 - Bool (true -> Connect this input to SRB2 (default),
+ *                     false -> Disconnect this input from SRB2)
+ *          Select to connect (true) this channel's P input to the SRB2 pin. This closes
+ *              a switch between P input and SRB2 for the given channel, and allows the
+ *              P input to also remain connected to the ADC.
+ * @param srb1 - Bool (true -> connect all N inputs to SRB1,
+ *                     false -> Disconnect all N inputs from SRB1 (default))
+ *          Select to connect (true) all channels' N inputs to SRB1. This effects all pins,
+ *              and disconnects all N inputs from the ADC.
+ * @returns {Promise} resolves if sent, rejects on bad input or no board
+ * @author AJ Keller (@aj-ptw)
+ */
+Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType, bias, srb2, srb1) {
+  let arrayOfCommands = [];
+  return new Promise((resolve, reject) => {
+    k.getChannelSetter(channelNumber, powerDown, gain, inputType, bias, srb2, srb1)
+      .then((val) => {
+        arrayOfCommands = val.commandArray;
+        this._rawDataPacketToSample.channelSettings[channelNumber - 1] = val.newChannelSettingsObject;
+        return this.write(arrayOfCommands.join(''));
+      }).then(resolve, reject);
+  });
+};
+
+/**
+ * @description To send an impedance setting command to the board
+ * @param channelNumber {Number} (1-16)
+ * @param pInputApplied {Boolean} (true -> ON, false -> OFF (default))
+ * @param nInputApplied {Boolean} (true -> ON, false -> OFF (default))
+ * @returns {Promise} resolves if sent, rejects on bad input or no board
+ * @author AJ Keller (@aj-ptw)
+ */
+Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputApplied) {
+  let arrayOfCommands = [];
+  return new Promise((resolve, reject) => {
+    k.getImpedanceSetter(channelNumber, pInputApplied, nInputApplied)
+      .then((val) => {
+        arrayOfCommands = val.commandArray;
+        return this.write(arrayOfCommands.join(''));
+      }).then(resolve, reject);
+  });
+};
+
+/**
  * @description The essential precursor method to be called initially to establish a
  *              ble connection to the OpenBCI ganglion board.
  * @param o {Object}
  * @param o.ipAddress {String} - The ip address of the shield if you know it
+ * @param o.latency {Number} - If you want to set the latency of the system you can here too.
  * @param o.sampleRate - The sample rate to set the board connected to the wifi shield
  * @param o.shieldName {String} - If supplied, will search for a shield by this name, if not supplied, will connect to
  *  the first shield found.
@@ -214,6 +274,9 @@ Wifi.prototype.connect = function (o) {
         }
       });
     }
+    if (o.hasOwnProperty('latency')) {
+      this._latency = o.latency;
+    }
     if (this.options.verbose) console.log(`Attempting to connect to ${o.ipAddress}`);
     this._connectSocket(this._ipAddress)
       .then(() => {
@@ -227,7 +290,7 @@ Wifi.prototype.connect = function (o) {
           if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
           return this.setSampleRate(o.sampleRate);
         }
-        return this.getSampleRate();
+        return this.syncSampleRate();
       })
       .then((sampleRate) => {
         if (this.options.verbose) console.log(`Sample rate is ${sampleRate}`);
@@ -261,23 +324,10 @@ Wifi.prototype.connect = function (o) {
 Wifi.prototype.disconnect = function () {
   this._disconnected();
   return Promise.resolve();
-
 };
 
-/**
- * Return the shield name of the attached WiFi Shield device.
- * @return {null|String}
- */
-Wifi.prototype.getShieldName = function () {
-  return this._shieldName;
-};
-
-/**
- * Get's the multi packet buffer.
- * @return {null|Buffer} - Can be null if no multi packets received.
- */
-Wifi.prototype.getMutliPacketBuffer = function () {
-  return this._multiPacketBuffer;
+Wifi.prototype.eraseCredentials = function () {
+  this.delete
 };
 
 /**
@@ -304,12 +354,46 @@ Wifi.prototype.isStreaming = function () {
   return this._streaming;
 };
 
+
 /**
  * @description Get the current board type
  * @returns {*}
  */
 Wifi.prototype.getBoardType = function () {
   return this._boardType;
+};
+
+/**
+ * @description Get the firmware version of connected and synced wifi shield.
+ * @returns {String} The version number
+ * Note: This is dependent on if you called connect
+ */
+Wifi.prototype.getFirmwareVersion = function () {
+  return this._version;
+};
+
+/**
+ * Return the ip address of the attached WiFi Shield device.
+ * @return {null|String}
+ */
+Wifi.prototype.getIpAddress = function () {
+  return this._ipAddress;
+};
+
+/**
+ * Return the latency to be set on the WiFi Shield.
+ * @return {Number}
+ */
+Wifi.prototype.getIpAddress = function () {
+  return this._latency;
+};
+
+/**
+ * Return the MAC address of the attached WiFi Shield device.
+ * @return {null|String}
+ */
+Wifi.prototype.getMacAddress = function () {
+  return this._macAddress;
 };
 
 /**
@@ -330,6 +414,32 @@ Wifi.prototype.getNumberOfChannels = function () {
  */
 Wifi.prototype.getSampleRate = function () {
   return this._sampleRate;
+};
+
+/**
+ * Return the shield name of the attached WiFi Shield device.
+ * @return {null|String}
+ */
+Wifi.prototype.getShieldName = function () {
+  return this._shieldName;
+};
+
+/**
+ * Call to start testing impedance.
+ * @return {global.Promise|Promise}
+ */
+Wifi.prototype.impedanceStart = function () {
+  if (this.getBoardType() !== k.OBCIBoardGanglion) return Promise.reject(Error('Expected board type to be Ganglion'));
+  return this.write(k.OBCIGanglionImpedanceStart);
+};
+
+/**
+ * Call to stop testing impedance.
+ * @return {global.Promise|Promise}
+ */
+Wifi.prototype.impedanceStop = function () {
+  if (this.getBoardType() !== k.OBCIBoardGanglion) return Promise.reject(Error('Expected board type to be Ganglion'));
+  return this.write(k.OBCIGanglionImpedanceStop);
 };
 
 /**
@@ -555,41 +665,6 @@ Wifi.prototype.syncRegisterSettings = function () {
 };
 
 /**
- * @description To send a channel setting command to the board
- * @param channelNumber - Number (1-16)
- * @param powerDown - Bool (true -> OFF, false -> ON (default))
- *          turns the channel on or off
- * @param gain - Number (1,2,4,6,8,12,24(default))
- *          sets the gain for the channel
- * @param inputType - String (normal,shorted,biasMethod,mvdd,temp,testsig,biasDrp,biasDrn)
- *          selects the ADC channel input source
- * @param bias - Bool (true -> Include in bias (default), false -> remove from bias)
- *          selects to include the channel input in bias generation
- * @param srb2 - Bool (true -> Connect this input to SRB2 (default),
- *                     false -> Disconnect this input from SRB2)
- *          Select to connect (true) this channel's P input to the SRB2 pin. This closes
- *              a switch between P input and SRB2 for the given channel, and allows the
- *              P input to also remain connected to the ADC.
- * @param srb1 - Bool (true -> connect all N inputs to SRB1,
- *                     false -> Disconnect all N inputs from SRB1 (default))
- *          Select to connect (true) all channels' N inputs to SRB1. This effects all pins,
- *              and disconnects all N inputs from the ADC.
- * @returns {Promise} resolves if sent, rejects on bad input or no board
- * @author AJ Keller (@aj-ptw)
- */
-Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType, bias, srb2, srb1) {
-  let arrayOfCommands = [];
-  return new Promise((resolve, reject) => {
-    k.getChannelSetter(channelNumber, powerDown, gain, inputType, bias, srb2, srb1)
-      .then((val) => {
-        arrayOfCommands = val.commandArray;
-        this._rawDataPacketToSample.channelSettings[channelNumber - 1] = val.newChannelSettingsObject;
-        return this.write(arrayOfCommands.join(''));
-      }).then(resolve, reject);
-  });
-};
-
-/**
  * @description Sends a soft reset command to the board
  * @returns {Promise} - Fulfilled if the command was sent to board.
  * @author AJ Keller (@aj-ptw)
@@ -644,7 +719,6 @@ Wifi.prototype.streamStop = function () {
  * @returns {Promise.<TResult>}
  */
 Wifi.prototype.syncInfo = function () {
-  let boardInfo;
   return this.get(this._ipAddress, '/board')
     .then((info) => {
       try {
@@ -660,7 +734,7 @@ Wifi.prototype.syncInfo = function () {
         });
         this._rawDataPacketToSample.channelSettings = channelSettings;
         if (this.options.verbose) console.log(`Got all info from GET /board`);
-        boardInfo = info;
+        this._boardInfo = info;
         return this.get(this._ipAddress, '/all');
       } catch (err) {
         return Promise.reject(err);
@@ -669,7 +743,11 @@ Wifi.prototype.syncInfo = function () {
     .then((allInfo) => {
       allInfo = JSON.parse(allInfo);
       this._shieldName = allInfo.name;
-      return Promise.resolve(boardInfo);
+      this._macAddress = allInfo.mac;
+      this._version = allInfo.version;
+      this._latency = allInfo.latency;
+      this._allInfo = allInfo;
+      return Promise.resolve(this._boardInfo);
     })
     .catch((err) => {
       console.log(err);
@@ -702,7 +780,7 @@ Wifi.prototype.write = function (data) {
           reject(err);
         })
     } else {
-      reject('Local name is not set. Please call connect with ip address of wifi shield');
+      reject('ipAddress is not set. Please call connect with ip address of wifi shield');
     }
   });
 };
@@ -816,7 +894,7 @@ Wifi.prototype._connectSocket = function (shieldIP) {
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
-    latency: this.options.latency
+    latency: this._latency
   });
 };
 

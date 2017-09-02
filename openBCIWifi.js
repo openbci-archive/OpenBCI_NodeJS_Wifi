@@ -137,6 +137,7 @@ function Wifi (options) {
   /** Private Properties (keep alphabetical) */
   this._accelArray = [0, 0, 0];
   this._allInfo = null;
+  this._boardConnected = false;
   this._boardInfo = null;
   this._boardType = k.OBCIBoardNone;
   this._connected = false;
@@ -244,8 +245,7 @@ Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputAppl
   return new Promise((resolve, reject) => {
     k.getImpedanceSetter(channelNumber, pInputApplied, nInputApplied)
       .then((val) => {
-        arrayOfCommands = val.commandArray;
-        return this.write(arrayOfCommands.join(''));
+        return this.write(val.join(''));
       }).then(resolve, reject);
   });
 };
@@ -254,6 +254,7 @@ Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputAppl
  * @description The essential precursor method to be called initially to establish a
  *              ble connection to the OpenBCI ganglion board.
  * @param o {Object}
+ * @param o.examineMode {Boolean} - Set this option true to connect to the WiFi Shield even if there is no board attached.
  * @param o.ipAddress {String} - The ip address of the shield if you know it
  * @param o.latency {Number} - If you want to set the latency of the system you can here too.
  * @param o.sampleRate - The sample rate to set the board connected to the wifi shield
@@ -265,30 +266,35 @@ Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputAppl
  */
 Wifi.prototype.connect = function (o) {
   return new Promise((resolve, reject) => {
+    let ipAddress = "";
     if (o.hasOwnProperty('ipAddress')) {
-      this._ipAddress = o.ipAddress;
+      ipAddress = o.ipAddress;
     } else if (o.hasOwnProperty('shieldName')) {
       _.forEach(this.wifiShieldArray, (shield) => {
         if (shield.localName === o.shieldName) {
-          this._ipAddress = shield.ipAddress;
+          ipAddress = shield.ipAddress;
         }
       });
     }
     if (o.hasOwnProperty('latency')) {
       this._latency = o.latency;
     }
-    if (this.options.verbose) console.log(`Attempting to connect to ${o.ipAddress}`);
-    this._connectSocket(this._ipAddress)
+    this._ipAddress = ipAddress;
+    if (this.options.verbose) console.log(`Attempting to connect to ${this._ipAddress}`);
+    this._connectSocket()
       .then(() => {
-        if (this.options.verbose) console.log(`Connected to ${o.ipAddress}`);
+        if (this.options.verbose) console.log(`Connected to ${this._ipAddress}`);
         this._connected = true;
-        return this.syncInfo();
+        return this.syncInfo(o);
       })
       .then(() => {
         if (this.options.verbose) console.log(`Synced into with ${this._shieldName}`);
         if (o.hasOwnProperty('sampleRate')) {
           if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
           return this.setSampleRate(o.sampleRate);
+        }
+        if (o.hasOwnProperty('examineMode')) {
+          if (o.examineMode) return Promise.resolve(0);
         }
         return this.syncSampleRate();
       })
@@ -384,7 +390,7 @@ Wifi.prototype.getIpAddress = function () {
  * Return the latency to be set on the WiFi Shield.
  * @return {Number}
  */
-Wifi.prototype.getIpAddress = function () {
+Wifi.prototype.getLatency = function () {
   return this._latency;
 };
 
@@ -595,6 +601,7 @@ Wifi.prototype.searchStop = function () {
   if (this.wifiClient) this.wifiClient.stop();
   if (this.ssdpTimeout) clearTimeout(this.ssdpTimeout);
   this._scanning = false;
+  this.emit('scanStopped'); // TODO: When 0.2.4 util is merged change to const
   return Promise.resolve();
 };
 
@@ -680,7 +687,8 @@ Wifi.prototype.softReset = function () {
  */
 Wifi.prototype.eraseWifiCredentials = function () {
   return new Promise((resolve, reject) => {
-    this.delete(this._ipAddress, '/wifi')
+    let result = "";
+    this.delete('/wifi')
       .then((res) => {
         if (this.options.verbose) console.log(res);
         return this.disconnect();
@@ -738,17 +746,25 @@ Wifi.prototype.streamStop = function () {
 
 /**
  * Sync the info of this wifi module
+ * @param o {Object}
+ * @param o.examineMode {Boolean} - Set this option true to connect to the WiFi Shield even if there is no board attached.
  * @returns {Promise.<TResult>}
  */
-Wifi.prototype.syncInfo = function () {
-  return this.get(this._ipAddress, '/board')
+Wifi.prototype.syncInfo = function (o) {
+  return this.get('/board')
     .then((info) => {
       try {
         info = JSON.parse(info);
-        this.openBCIBoardConnected = info['board_connected'];
-        if (!this.openBCIBoardConnected) return Promise.reject(Error('No OpenBCI Board (Ganglion or Cyton) connected, please check power of the boards'));
+        this._boardConnected = info['board_connected'];
         this._numberOfChannels = info['num_channels'];
         this._boardType = info['board_type'];
+        if (o.hasOwnProperty('examineMode')) {
+          if (!o.examineMode && !this._boardConnected) {
+            return Promise.reject(Error('No OpenBCI Board (Ganglion or Cyton) connected, please check power of the boards'));
+          }
+        } else {
+          if (!this._boardConnected) return Promise.reject(Error('No OpenBCI Board (Ganglion or Cyton) connected, please check power of the boards'));
+        }
 
         const channelSettings = k.channelSettingsArrayInit(this.getNumberOfChannels());
         _.forEach(channelSettings, (settings, index) => {
@@ -757,7 +773,7 @@ Wifi.prototype.syncInfo = function () {
         this._rawDataPacketToSample.channelSettings = channelSettings;
         if (this.options.verbose) console.log(`Got all info from GET /board`);
         this._boardInfo = info;
-        return this.get(this._ipAddress, '/all');
+        return this.get('/all');
       } catch (err) {
         return Promise.reject(err);
       }
@@ -794,7 +810,7 @@ Wifi.prototype.write = function (data) {
         }
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post(this._ipAddress, '/command', {'command': data.toString()})
+      this.post('/command', {'command': data.toString()})
         .then((res) => {
           resolve(res);
         })
@@ -907,11 +923,10 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
 
 /**
  * Used for client connecting to
- * @param shieldIP {String} - The local ip address. Or host name on mac or if using bonjour (windows/linux)
  * @private
  */
-Wifi.prototype._connectSocket = function (shieldIP) {
-  return this.post(shieldIP, '/tcp', {
+Wifi.prototype._connectSocket = function () {
+  return this.post('/tcp', {
     ip: ip.address(),
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
@@ -1000,13 +1015,13 @@ Wifi.prototype._delete = function (host, path, cb) {
   req.end();
 };
 
-Wifi.prototype.delete = function (host, path) {
+Wifi.prototype.delete = function (path) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {
       resolve(res);
     };
     this.once('res', resFunc);
-    this._delete(host, path, (err) => {
+    this._delete(this._ipAddress, path, (err) => {
       if (err) {
         if (this.options.verbose) {
           this.removeListener('res', resFunc);
@@ -1043,13 +1058,13 @@ Wifi.prototype._get = function (host, path, cb) {
   req.end();
 };
 
-Wifi.prototype.get = function (host, path) {
+Wifi.prototype.get = function (path) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {
       resolve(res);
     };
     this.once('res', resFunc);
-    this._get(host, path, (err) => {
+    this._get(this._ipAddress, path, (err) => {
       if (err) {
         if (this.options.verbose) {
           this.removeListener('res', resFunc);
@@ -1094,13 +1109,13 @@ Wifi.prototype._post = function (host, path, payload, cb) {
 };
 
 //TODO: Implement a function that allows us to async wait for res
-Wifi.prototype.post = function (host, path, payload) {
+Wifi.prototype.post = function (path, payload) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {
       resolve(res);
     };
     this.once('res', resFunc);
-    this._post(host, path, payload, (err) => {
+    this._post(this._ipAddress, path, payload, (err) => {
       if (err) {
         if (this.options.verbose) {
           this.removeListener('res', resFunc);

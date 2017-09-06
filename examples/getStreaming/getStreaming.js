@@ -17,7 +17,7 @@ let Wifi = require('../../openBCIWifi');
 let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: true,
+  sendCounts: false,
   latency: 10000
 });
 

@@ -17,7 +17,7 @@ let Wifi = require('../../openBCIWifi');
 let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
-  sendCounts: false,
+  sendCounts: true,
   latency: 10000
 });
 
@@ -28,7 +28,7 @@ let MAX_SAMPLE_NUMBER = 255;
 
 const sampleFunc = (sample) => {
   try {
-    // console.log(sample);
+    console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {

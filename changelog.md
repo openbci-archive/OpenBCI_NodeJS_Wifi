@@ -1,3 +1,9 @@
+# v0.2.1
+
+### Bug Fixes
+
+* Bumping utility version to 0.2.4 fixes bug in this repo too for ganglion over wifi with no scale.
+
 # 0.2.0
 
 ### Breaking changes

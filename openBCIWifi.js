@@ -288,7 +288,7 @@ Wifi.prototype.connect = function (o) {
         return this.syncInfo(o);
       })
       .then(() => {
-        if (this.options.verbose) console.log(`Synced into with ${this._shieldName}`);
+        if (this.options.verbose) console.log(`Synced info with ${this._shieldName}`);
         if (o.hasOwnProperty('sampleRate')) {
           if (this.options.verbose) console.log(`Attempting to set sample rate to ${o.sampleRate}`);
           return this.setSampleRate(o.sampleRate);

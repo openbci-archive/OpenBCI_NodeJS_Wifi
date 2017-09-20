@@ -1,10 +1,114 @@
-[![Build Status](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg?branch=master)](https://travis-ci.org/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![codecov](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi/branch/master/graph/badge.svg)](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![Dependency Status](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg)](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![npm](https://img.shields.io/npm/dm/openbci-wifi.svg?maxAge=2592000)](http://npmjs.com/package/openbci-wifi)
 [![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat-square)](https://github.com/Flet/semistandard)
 
-# OpenBCI Node.js Wifi
+# OpenBCI WiFi Shield NodeJS SDK
+
+***Make programming with OpenBCI reliable, easy, research grade and fun!***
+
+## Welcome!
+
+First and foremost, Welcome! :tada: Willkommen! :confetti_ball: Bienvenue! :balloon::balloon::balloon:
+
+Thank you for visiting the OpenBCI WiFi Shield NodeJS SDK repository.
+
+This document (the README file) is a hub to give you some information about the project. Jump straight to one of the sections below, or just scroll down to find out more.
+
+* [What are we doing? (And why?)](#what-are-we-doing)
+* [Who are we?](#who-are-we)
+* [What do we need?](#what-do-we-need)
+* [How can you get involved?](#get-involved)
+* [Get in touch](#contact-us)
+* [Find out more](#find-out-more)
+* [Understand the jargon](#glossary)
+
+## What are we doing?
+
+### The problem
+
+* Users continuously struggle to get prerequisites properly installed to get current OpenBCI Cyton and Ganglion, hours/days/weeks are wasted just _trying to get the data_.
+* Bluetooth requires you to stay close to your computer, if you go to far, data is lost and the experiment is over.
+* Bluetooth is too slow for transmitting research grade EEG, researchers want 1000Hz (samples per second), bluetooth with 8 channels is limted to 250Hz and with 16 channels limited to 125Hz.
+* Bluetooth is unreliable when many other Bluetooth devices are around, demo device or use in busy real life experiment is not reliable. (think grand central station at rush hour)
+* Bluetooth requires data to be sent to desktops in raw or compressed form, must use other node modules to parse complex byte streams, prevents from running in browser.
+* OpenBCI Cyton (8 and 16 channel) with Bluetooth cannot go to any mobile device because of required Bluetooth-to-USB "Dongle". Must use USB port on Desktop/Laptop computers.
+* Bluetooth on Ganglion requires low level drivers to use computers bluetooth hardware.
+* The OpenBCI Cyton and Ganglion must transmit data to another computer over Bluetooth before going to the cloud for storage or analytics
+* OpenBCI Cyton Dongle FTDI virtual comm port drivers have high latency by default which limits the rate at which new data is made available to your application to twice a second when it should get data as close to 250 times a second.
+* Using Cyton or Ganglion NodeJS drivers requires the use of [_native C++ modules_](https://nodejs.org/api/addons.html) which continuously confuse developers of all levels.
+
+So, if even the very best developers integrate the current easy to use Cyton and Ganglion NodeJS drivers, they are still burdened by the limitations of the physical hardware on the OpenBCI system.
+
+### The solution
+
+The OpenBCI WiFi Shield NodeJS SDK will:
+
+* Find, connect, sync, and configure (e.g. set sample rate) with OpenBCI WiFi Shield and Carrier board (Ganglion or Cyton or Cyton with Daisy) in a single function call
+* Use TCP over WiFi to prevent packet loss
+* Relies on **zero** [_native C++ modules_](https://nodejs.org/api/addons.html)
+* Enable streaming of high speed (samples rates over 100Hz), low latency (by default, send data every 10ms), research grade EEG (no lost data) directly to any internet connected device (i.e. iPhone, Android, macOS, Windows, Linux, Raspberry Pi 3)
+* With WiFi Shield you can now use OpenBCI Ganglion and Cyton anywhere you have a good enough WiFi signal.
+* Hotspots create a stable wireless transmission system even in crowded areas
+
+Using WiFi physically solves limitations with the current state-of-the-art open source bio sensor. The goal for the WiFi Shield firmware was to create a [_one up_](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0ahUKEwjF7pax67PWAhUH6oMKHdfJAcgQFggoMAA&url=https%3A%2F%2Fwww.electroimpact.com%2FWhitePapers%2F2008-01-2297.pdf&usg=AFQjCNHSyVXxRNtkFrmPiRqM5WqHWdO9-g) data pipeline, where scientific data in JSON is sent instead of raw/compressed ADC counts (yuk!) to ***make programming with OpenBCI reliable, easy, research grade and fun!***
+
+## Who are we?
+
+The founder of the OpenBCI WiFi Shield NodeJS SDK is [AJ Keller][link_aj_keller]. There's more information about him (and some pictures) in the [MeetTheTeam](MeetTheTeam.md) file.
+
+The development of this app is mentored by the team behind the [Rosalind Franklin Appathon][link_rfappapthon] - a challenge launched in 2015 to find and support the development of new mobile phone apps to empower women in STEMM. The competition is funded by the [Royal Society's Rosalind Franklin award][link_royalsociety_rfaward] which was won in 2014 by the Prof [Rachel McKendry][link_rachelmckendry]. Check out her [awesome lecture][link_rachelmckendry_talk] on _Harnessing the power of mobile phones and big data for global health_.
+
+<a href="https://www.mozillascience.org/about">
+  <img
+    src="http://mozillascience.github.io/working-open-workshop/assets/images/science-fox.svg"
+    align="right"
+    width=140
+  </img>
+</a>
+
+[AJ][link_aj_keller] is an invited member of the 4th cohort [Open Leaders Cohort][link_openleaderscohort] of the [Mozilla Science Lab][link_mozsci] who brought together open science advocates from around the world to participate in the first [Working Open Workshop][link_mozwow] in Berlin in February 2016. The [training exercises][link_mozwow] (which are free and easy to reuse) focused on how to build and effectively engage communities so they can work together to develop tools and resources for the greater good.
+
+## What do we need?
+
+**You**! In whatever way you can help.
+
+We need expertise in fundraising, app development, user experience design, database maintenance (particularly ensuring the highest quality data protection plans are in place), software sustainability, documentation and technical writing and project management.
+
+We'd love your feedback along the way, and of course, we'd love you to be **in the database** once it exists.
+
+Our primary goal is to support women in STEMM and while the app is aimed at conference organisers, we're excited to plug another hole in the leaky pipeline by supporting the professional development of any and all of our contributors. If you're looking to learn to code, try out working collaboratively, get some experience writing grant applications or translate you skills to the digital domain, we're here to help.
+
+## Get involved
+
+If you think you can help in any of the areas listed above (and we bet you can) or in any of the many areas that we haven't yet thought of (and here we're *sure* you can) then please check out our [contributors' guidelines](CONTRIBUTING.md) and our [roadmap](../../issues/1).
+
+Please note that it's very important to us that we maintain a positive and supportive environment for everyone who wants to participate. When you join us we ask that you follow our [code of conduct](CODE_OF_CONDUCT.md) in all interactions both on and offline.
+
+
+## Contact us
+
+If you want to report a problem or suggest an enhancement we'd love for you to [open an issue](../../issues) at this github repository because then we can get right on it. But you can also contact [Kirstie][link_kirstiejane] by email (kw401 AT cam DOT ac DOT uk) or on [twitter](https://twitter.com/kirstie_j).
+
+You can also hang out, ask questions and share stories in the [STEMMRoleModels room](https://gitter.im/KirstieJane/STEMMRoleModels) on Gitter.
+
+## Find out more
+
+You might be interested in:
+
+* Our applications to the Rosalind Franklin Appathon: [ApplicationMaterials_FirstRound.md](ApplicationMaterials/RFAppathon/ApplicationMaterials_FirstRound.md) and [ApplicationMaterials_SecondRound.md](ApplicationMaterials/RFAppathon/ApplicationMaterials_SecondRound.md)
+* An example profile: [ProfileExample.md](ProfileExample.md)
+* Our [Lean Canvas business plan][link_leancanvas]
+
+And of course, you'll want to know our:
+
+* [Contributors' guidelines](CONTRIBUTING.md)
+* [Roadmap](../../issues/1)
+
+
+## Thank you
+
+Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and we do hope that you'll join us on this amazing journey to support women and other under-represented groups in STEMM.
 
 A Node.js module for OpenBCI ~ written with love by [Push The World!](http://www.pushtheworldllc.com)
 
@@ -174,3 +278,12 @@ npm test
 ## <a name="license"></a> License:
 
 MIT
+
+[link_aj_keller]: https://github.com/aj-ptw
+[link_shop_wifi_shield]: https://shop.openbci.com/collections/frontpage/products/wifi-shield?variant=44534009550
+[link_shop_ganglion]: https://shop.openbci.com/collections/frontpage/products/pre-order-ganglion-board
+[link_shop_cyton]: https://shop.openbci.com/collections/frontpage/products/cyton-biosensing-board-8-channel
+[link_shop_cyton_daisy]: https://shop.openbci.com/collections/frontpage/products/cyton-daisy-biosensing-boards-16-channel
+[link_ptw]: https://www.pushtheworldllc.com
+[link_openbci]: http://www.openbci.com
+[link_mozwow]: http://mozillascience.github.io/working-open-workshop/index.html

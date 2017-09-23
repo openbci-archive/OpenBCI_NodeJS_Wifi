@@ -1,11 +1,16 @@
+# OpenBCI WiFi Shield NodeJS SDK
+
+<p align="center">
+  <img alt="banner" src="/images/WiFi_front_product.jpg/" width="600">
+</p>
+<p align="center" href="">
+  Make programming with OpenBCI reliable, easy, research grade and fun!
+</p>
+
 [![codecov](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi/branch/master/graph/badge.svg)](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![Dependency Status](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg)](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![npm](https://img.shields.io/npm/dm/openbci-wifi.svg?maxAge=2592000)](http://npmjs.com/package/openbci-wifi)
 [![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat-square)](https://github.com/Flet/semistandard)
-
-# OpenBCI WiFi Shield NodeJS SDK
-
-***Make programming with OpenBCI reliable, easy, research grade and fun!***
 
 ## Welcome!
 
@@ -73,48 +78,42 @@ The development of this app is mentored by the team behind the [Rosalind Frankli
 
 **You**! In whatever way you can help.
 
-We need expertise in fundraising, app development, user experience design, database maintenance (particularly ensuring the highest quality data protection plans are in place), software sustainability, documentation and technical writing and project management.
+We need expertise in programming, user experience, software sustainability, documentation and technical writing and project management.
 
-We'd love your feedback along the way, and of course, we'd love you to be **in the database** once it exists.
+We'd love your feedback along the way.
 
-Our primary goal is to support women in STEMM and while the app is aimed at conference organisers, we're excited to plug another hole in the leaky pipeline by supporting the professional development of any and all of our contributors. If you're looking to learn to code, try out working collaboratively, get some experience writing grant applications or translate you skills to the digital domain, we're here to help.
+Our primary goal is to make programming with OpenBCI reliable, easy, research grade and fun, and we're excited to support the professional development of any and all of our contributors. If you're looking to learn to code, try out working collaboratively, or translate you skills to the digital domain, we're here to help.
 
 ## Get involved
 
-If you think you can help in any of the areas listed above (and we bet you can) or in any of the many areas that we haven't yet thought of (and here we're *sure* you can) then please check out our [contributors' guidelines](CONTRIBUTING.md) and our [roadmap](../../issues/1).
+If you think you can help in any of the areas listed above (and we bet you can) or in any of the many areas that we haven't yet thought of (and here we're *sure* you can) then please check out our [contributors' guidelines](CONTRIBUTING.md) and our [roadmap](ROADMAP.md).
 
 Please note that it's very important to us that we maintain a positive and supportive environment for everyone who wants to participate. When you join us we ask that you follow our [code of conduct](CODE_OF_CONDUCT.md) in all interactions both on and offline.
 
 
 ## Contact us
 
-If you want to report a problem or suggest an enhancement we'd love for you to [open an issue](../../issues) at this github repository because then we can get right on it. But you can also contact [Kirstie][link_kirstiejane] by email (kw401 AT cam DOT ac DOT uk) or on [twitter](https://twitter.com/kirstie_j).
+If you want to report a problem or suggest an enhancement we'd love for you to [open an issue](../../issues) at this github repository because then we can get right on it. But you can also contact [AJ][link_aj_keller] by email (pushtheworldllc AT gmail DOT com) or on [twitter](https://twitter.com/aj-ptw).
 
-You can also hang out, ask questions and share stories in the [STEMMRoleModels room](https://gitter.im/KirstieJane/STEMMRoleModels) on Gitter.
+You can also hang out, ask questions and share stories in the [OpenBCI NodeJS room](https://gitter.im/OpenBCI/OpenBCI_NodeJS?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) on Gitter.
 
 ## Find out more
 
 You might be interested in:
 
-* Our applications to the Rosalind Franklin Appathon: [ApplicationMaterials_FirstRound.md](ApplicationMaterials/RFAppathon/ApplicationMaterials_FirstRound.md) and [ApplicationMaterials_SecondRound.md](ApplicationMaterials/RFAppathon/ApplicationMaterials_SecondRound.md)
-* An example profile: [ProfileExample.md](ProfileExample.md)
-* Our [Lean Canvas business plan][link_leancanvas]
+* Purchase a [WiFi Shield from OpenBCI](https://shop.openbci.com/collections/frontpage/products/wifi-shield?variant=44534009550)
+* A NodeJS example for WiFi Shield: [getStreaming.js][link_wifi_get_streaming]
 
 And of course, you'll want to know our:
 
 * [Contributors' guidelines](CONTRIBUTING.md)
-* [Roadmap](../../issues/1)
-
+* [Roadmap](ROADMAP.md)
 
 ## Thank you
 
-Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and we do hope that you'll join us on this amazing journey to support women and other under-represented groups in STEMM.
+Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and we do hope that you'll join us on this amazing journey to make programming with OpenBCI fun and easy.
 
-A Node.js module for OpenBCI ~ written with love by [Push The World!](http://www.pushtheworldllc.com)
-
-Push The World is actively developing and maintaining this module.
-
-The purpose of this module is to supply an npm module with no native modules that interfaces with the OpenBCI Wifi Shield.
+# Documentation
 
 ### Table of Contents:
 ---
@@ -287,3 +286,4 @@ MIT
 [link_ptw]: https://www.pushtheworldllc.com
 [link_openbci]: http://www.openbci.com
 [link_mozwow]: http://mozillascience.github.io/working-open-workshop/index.html
+[link_wifi_get_streaming]: examples/getStreaming/getStreaming.js

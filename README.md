@@ -120,7 +120,7 @@ Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and w
 
 1. [Installation](#install)
 2. [TL;DR](#tldr)
-3. [Cyton (32bit Board)](#cyton)
+3. [WiFi](#wifi)
   1. [About](#about)
   2. [General Overview](#general-overview)
   3. [SDK Reference Guide](#sdk-reference-guide)
@@ -142,7 +142,6 @@ npm install openbci-wifi
 ### <a name="tldr"></a> TL;DR:
 Get connected and [start streaming right now with the example code](examples/getStreaming/getStreaming.js).
 
-#### Wifi
 ```ecmascript 6
 const Wifi = require('openbci-wifi');
 let wifi = new Wifi({
@@ -224,30 +223,459 @@ The power of this module is in using the sample emitter, to be provided with sam
 
 To get a ['sample'](#event-sample) event, you need to:
 -------------------------------------
-1. Call [`.searchToStream(serialPortName)`](#method-connect)
-2. Install the ['ready'](#event-ready) event emitter on resolved promise
-3. In callback for ['ready'](#event-ready) emitter, call [`streamStart()`](#method-stream-start)
-4. Install the ['sample'](#event-sample) event emitter
+1. Install the ['sample'](#event-sample) event emitter
+2. Call [`.searchToStream(serialPortName)`](#method-connect)
 ```js
-const Cyton = require('openbci-cyton');
-const ourBoard = new Cyton();
-ourBoard.connect(portName).then(function() {
-    ourBoard.on('ready',function() {
-        ourBoard.streamStart();
-        ourBoard.on('sample',function(sample) {
-            /** Work with sample */
-        });
-    });
-}).catch(function(err) {
-    /** Handle connection errors */
+const Wifi = require('openbci-wifi');
+let wifi = new Wifi({
+  debug: false,
+  verbose: true,
+  latency: 10000
 });
+
+wifi.on(k.OBCIEmitterSample, (sample) => {
+  for (let i = 0; i < wifi.getNumberOfChannels(); i++) {
+    console.log("Channel " + (i + 1) + ": " + sample.channelData[i].toFixed(8) + " Volts.");
+     // prints to the console
+     //  "Channel 1: 0.00001987 Volts."
+     //  "Channel 2: 0.00002255 Volts."
+     //  ...
+     //  "Channel 8: -0.00001875 Volts."
+  }
+});
+
+wifi.searchToStream({
+    sampleRate: 1000 // Custom sample rate
+    shieldName: 'OpenBCI-2C34', // Enter the unique name for your wifi shield
+    streamStart: true // Call to start streaming in this function
+  }).catch(console.log);
 ```
 Close the connection with [`.streamStop()`](#method-stream-stop) and disconnect with [`.disconnect()`](#method-disconnect)
 ```js
-const Cyton = require('openbci-cyton');
-const ourBoard = new Cyton();
-ourBoard.streamStop().then(ourBoard.disconnect());
+const Wifi = require('openbci-wifi');
+const wifi = new Wifi();
+wifi.streamStop().then(wifi.disconnect());
 ```
+
+## Classes
+
+<dl>
+<dt><a href="#Wifi">Wifi</a></dt>
+<dd></dd>
+</dl>
+
+## Typedefs
+
+<dl>
+<dt><a href="#InitializationObject">InitializationObject</a> : <code>Object</code></dt>
+<dd></dd>
+</dl>
+
+<a name="Wifi"></a>
+
+## Wifi
+**Kind**: global class
+**Author**: AJ Keller (@aj-ptw)
+
+* [Wifi](#Wifi)
+    * [new Wifi(options)](#new_Wifi_new)
+    * _instance_
+        * [.options](#Wifi+options) : [<code>InitializationObject</code>](#InitializationObject)
+        * [._accelArray](#Wifi+_accelArray)
+        * [.curOutputMode](#Wifi+curOutputMode)
+        * [.channelOff(channelNumber)](#Wifi+channelOff) ⇒ <code>Promise.&lt;T&gt;</code>
+        * [.channelOn(channelNumber)](#Wifi+channelOn) ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
+        * [.channelSet(channelNumber, powerDown, gain, inputType, bias, srb2, srb1)](#Wifi+channelSet) ⇒ <code>Promise</code>
+        * [.impedanceSet(channelNumber, pInputApplied, nInputApplied)](#Wifi+impedanceSet) ⇒ <code>Promise</code>
+        * [.connect(o)](#Wifi+connect) ⇒ <code>Promise</code>
+        * [.disconnect()](#Wifi+disconnect) ⇒ <code>Promise</code>
+        * [.isConnected()](#Wifi+isConnected) ⇒ <code>boolean</code>
+        * [.isSearching()](#Wifi+isSearching) ⇒ <code>boolean</code>
+        * [.isStreaming()](#Wifi+isStreaming) ⇒ <code>boolean</code>
+        * [.getBoardType()](#Wifi+getBoardType) ⇒ <code>\*</code>
+        * [.getFirmwareVersion()](#Wifi+getFirmwareVersion) ⇒ <code>String</code>
+        * [.getIpAddress()](#Wifi+getIpAddress) ⇒ <code>null</code> \| <code>String</code>
+        * [.getLatency()](#Wifi+getLatency) ⇒ <code>Number</code>
+        * [.getMacAddress()](#Wifi+getMacAddress) ⇒ <code>null</code> \| <code>String</code>
+        * [.getNumberOfChannels()](#Wifi+getNumberOfChannels) ⇒ <code>Number</code>
+        * [.getSampleRate()](#Wifi+getSampleRate) ⇒ <code>Number</code>
+        * [.getShieldName()](#Wifi+getShieldName) ⇒ <code>null</code> \| <code>String</code>
+        * [.impedanceStart()](#Wifi+impedanceStart) ⇒ <code>global.Promise</code> \| <code>Promise</code>
+        * [.impedanceStop()](#Wifi+impedanceStop) ⇒ <code>global.Promise</code> \| <code>Promise</code>
+        * [.searchToStream(o)](#Wifi+searchToStream) ⇒ <code>Promise</code>
+        * [.setSampleRate(sampleRate)](#Wifi+setSampleRate) ⇒ <code>Promise</code>
+        * [.syncSampleRate()](#Wifi+syncSampleRate) ⇒ <code>Promise</code>
+        * [.searchStart()](#Wifi+searchStart) ⇒ <code>Promise</code>
+        * [.searchStop()](#Wifi+searchStop) ⇒ <code>global.Promise</code> \| <code>Promise</code>
+        * [.sdStop()](#Wifi+sdStop) ⇒ <code>Promise</code>
+        * [.syncRegisterSettings()](#Wifi+syncRegisterSettings) ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
+        * [.softReset()](#Wifi+softReset) ⇒ <code>Promise</code>
+        * [.eraseWifiCredentials()](#Wifi+eraseWifiCredentials) ⇒ <code>Promise</code>
+        * [.streamStart()](#Wifi+streamStart) ⇒ <code>Promise</code>
+        * [.streamStop()](#Wifi+streamStop) ⇒ <code>Promise</code>
+        * [.syncInfo(o)](#Wifi+syncInfo) ⇒ <code>Promise.&lt;TResult&gt;</code>
+        * [.write(data)](#Wifi+write) ⇒ <code>Promise</code>
+        * [.destroy()](#Wifi+destroy)
+    * _inner_
+        * [~o](#Wifi..o)
+
+<a name="new_Wifi_new"></a>
+
+### new Wifi(options)
+The initialization method to call first, before any other method.
+
+
+| Param | Type | Description |
+| --- | --- | --- |
+| options | [<code>InitializationObject</code>](#InitializationObject) | (optional) - Board optional configurations. |
+
+<a name="Wifi+options"></a>
+
+### wifi.options : [<code>InitializationObject</code>](#InitializationObject)
+**Kind**: instance property of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+_accelArray"></a>
+
+### wifi._accelArray
+Private Properties (keep alphabetical)
+
+**Kind**: instance property of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+curOutputMode"></a>
+
+### wifi.curOutputMode
+Public Properties (keep alphabetical)
+
+**Kind**: instance property of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+channelOff"></a>
+
+### wifi.channelOff(channelNumber) ⇒ <code>Promise.&lt;T&gt;</code>
+Send a command to the board to turn a specified channel off
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
+
+| Param |
+| --- |
+| channelNumber |
+
+<a name="Wifi+channelOn"></a>
+
+### wifi.channelOn(channelNumber) ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
+Send a command to the board to turn a specified channel on
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
+
+| Param |
+| --- |
+| channelNumber |
+
+<a name="Wifi+channelSet"></a>
+
+### wifi.channelSet(channelNumber, powerDown, gain, inputType, bias, srb2, srb1) ⇒ <code>Promise</code>
+To send a channel setting command to the board
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - resolves if sent, rejects on bad input or no board
+**Author**: AJ Keller (@aj-ptw)
+
+| Param | Description |
+| --- | --- |
+| channelNumber | Number (1-16) |
+| powerDown | Bool (true -> OFF, false -> ON (default))          turns the channel on or off |
+| gain | Number (1,2,4,6,8,12,24(default))          sets the gain for the channel |
+| inputType | String (normal,shorted,biasMethod,mvdd,temp,testsig,biasDrp,biasDrn)          selects the ADC channel input source |
+| bias | Bool (true -> Include in bias (default), false -> remove from bias)          selects to include the channel input in bias generation |
+| srb2 | Bool (true -> Connect this input to SRB2 (default),                     false -> Disconnect this input from SRB2)          Select to connect (true) this channel's P input to the SRB2 pin. This closes              a switch between P input and SRB2 for the given channel, and allows the              P input to also remain connected to the ADC. |
+| srb1 | Bool (true -> connect all N inputs to SRB1,                     false -> Disconnect all N inputs from SRB1 (default))          Select to connect (true) all channels' N inputs to SRB1. This effects all pins,              and disconnects all N inputs from the ADC. |
+
+<a name="Wifi+impedanceSet"></a>
+
+### wifi.impedanceSet(channelNumber, pInputApplied, nInputApplied) ⇒ <code>Promise</code>
+To send an impedance setting command to the board
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - resolves if sent, rejects on bad input or no board
+**Author**: AJ Keller (@aj-ptw)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| channelNumber | <code>Number</code> | (1-16) |
+| pInputApplied | <code>Boolean</code> | (true -> ON, false -> OFF (default)) |
+| nInputApplied | <code>Boolean</code> | (true -> ON, false -> OFF (default)) |
+
+<a name="Wifi+connect"></a>
+
+### wifi.connect(o) ⇒ <code>Promise</code>
+The essential precursor method to be called initially to establish a
+             ble connection to the OpenBCI ganglion board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - If the board was able to connect.
+**Author**: AJ Keller (@aj-ptw)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| o | <code>Object</code> |  |
+| o.examineMode | <code>Boolean</code> | Set this option true to connect to the WiFi Shield even if there is no board attached. |
+| o.ipAddress | <code>String</code> | The ip address of the shield if you know it |
+| o.latency | <code>Number</code> | If you want to set the latency of the system you can here too. |
+| o.sampleRate |  | The sample rate to set the board connected to the wifi shield |
+| o.shieldName | <code>String</code> | If supplied, will search for a shield by this name, if not supplied, will connect to  the first shield found. |
+| o.streamStart | <code>Boolean</code> | Set `true` if you want the board to start streaming. |
+
+<a name="Wifi+disconnect"></a>
+
+### wifi.disconnect() ⇒ <code>Promise</code>
+Closes the connection to the board. Waits for stop streaming command to
+ be sent if currently streaming.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - fulfilled by a successful close, rejected otherwise.
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+isConnected"></a>
+
+### wifi.isConnected() ⇒ <code>boolean</code>
+Checks if the driver is connected to a board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>boolean</code> - - True if connected.
+<a name="Wifi+isSearching"></a>
+
+### wifi.isSearching() ⇒ <code>boolean</code>
+Checks if noble is currently scanning.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>boolean</code> - - True if streaming.
+<a name="Wifi+isStreaming"></a>
+
+### wifi.isStreaming() ⇒ <code>boolean</code>
+Checks if the board is currently sending samples.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>boolean</code> - - True if streaming.
+<a name="Wifi+getBoardType"></a>
+
+### wifi.getBoardType() ⇒ <code>\*</code>
+Get the current board type
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+getFirmwareVersion"></a>
+
+### wifi.getFirmwareVersion() ⇒ <code>String</code>
+Get the firmware version of connected and synced wifi shield.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>String</code> - The version number
+Note: This is dependent on if you called connect
+<a name="Wifi+getIpAddress"></a>
+
+### wifi.getIpAddress() ⇒ <code>null</code> \| <code>String</code>
+Return the ip address of the attached WiFi Shield device.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+getLatency"></a>
+
+### wifi.getLatency() ⇒ <code>Number</code>
+Return the latency to be set on the WiFi Shield.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+getMacAddress"></a>
+
+### wifi.getMacAddress() ⇒ <code>null</code> \| <code>String</code>
+Return the MAC address of the attached WiFi Shield device.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+getNumberOfChannels"></a>
+
+### wifi.getNumberOfChannels() ⇒ <code>Number</code>
+This function is used as a convenience method to determine how many
+             channels the current board is using.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Number</code> - A number
+Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+getSampleRate"></a>
+
+### wifi.getSampleRate() ⇒ <code>Number</code>
+Get the the current sample rate is.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Number</code> - The sample rate
+Note: This is dependent on if you configured the board correctly on setup options
+<a name="Wifi+getShieldName"></a>
+
+### wifi.getShieldName() ⇒ <code>null</code> \| <code>String</code>
+Return the shield name of the attached WiFi Shield device.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+impedanceStart"></a>
+
+### wifi.impedanceStart() ⇒ <code>global.Promise</code> \| <code>Promise</code>
+Call to start testing impedance.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+impedanceStop"></a>
+
+### wifi.impedanceStop() ⇒ <code>global.Promise</code> \| <code>Promise</code>
+Call to stop testing impedance.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+searchToStream"></a>
+
+### wifi.searchToStream(o) ⇒ <code>Promise</code>
+Used to search for an OpenBCI WiFi Shield. Will connect to the first one if no `shieldName` is supplied.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Resolves after successful connection, rejects otherwise with Error.
+
+| Param | Type | Description |
+| --- | --- | --- |
+| o | <code>Object</code> | (optional) |
+| o.sampleRate |  | The sample rate to set the board connected to the wifi shield |
+| o.shieldName | <code>String</code> | If supplied, will search for a shield by this name, if not supplied, will connect to  the first shield found. |
+| o.streamStart | <code>Boolean</code> | Set `true` if you want the board to start streaming. |
+| o.timeout | <code>Number</code> | The time in milli seconds to wait for the system to try and auto find and connect to the  shield. |
+
+<a name="Wifi+setSampleRate"></a>
+
+### wifi.setSampleRate(sampleRate) ⇒ <code>Promise</code>
+Set the sample rate of the remote OpenBCI shield
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| sampleRate | <code>Number</code> | the sample rate you want to set to. |
+
+<a name="Wifi+syncSampleRate"></a>
+
+### wifi.syncSampleRate() ⇒ <code>Promise</code>
+Returns the sample rate from the board
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+searchStart"></a>
+
+### wifi.searchStart() ⇒ <code>Promise</code>
+List available peripherals so the user can choose a device when not
+             automatically found.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - If scan was started
+<a name="Wifi+searchStop"></a>
+
+### wifi.searchStop() ⇒ <code>global.Promise</code> \| <code>Promise</code>
+Called to end a search.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+sdStop"></a>
+
+### wifi.sdStop() ⇒ <code>Promise</code>
+Sends the stop SD logging command to the board. If not streaming then `eot` event will be emitted
+     with request response from the board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Resolves when written
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+syncRegisterSettings"></a>
+
+### wifi.syncRegisterSettings() ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
+Syncs the internal channel settings object with a cyton, this will take about
+ over a second because there are delays between the register reads in the firmware.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise.&lt;T&gt;</code> \| <code>\*</code> - Resolved once synced, rejects on error or 2 second timeout
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+softReset"></a>
+
+### wifi.softReset() ⇒ <code>Promise</code>
+Sends a soft reset command to the board
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Fulfilled if the command was sent to board.
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+eraseWifiCredentials"></a>
+
+### wifi.eraseWifiCredentials() ⇒ <code>Promise</code>
+Tells the WiFi Shield to forget it's network credentials. This will cause the board to drop all
+ connections.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - Resolves when WiFi Shield has been reset and the module disconnects.
+<a name="Wifi+streamStart"></a>
+
+### wifi.streamStart() ⇒ <code>Promise</code>
+Sends a start streaming command to the board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - indicating if the signal was able to be sent.
+Note: You must have successfully connected to an OpenBCI board using the connect
+          method. Just because the signal was able to be sent to the board, does not
+          mean the board will start streaming.
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+streamStop"></a>
+
+### wifi.streamStop() ⇒ <code>Promise</code>
+Sends a stop streaming command to the board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - indicating if the signal was able to be sent.
+Note: You must have successfully connected to an OpenBCI board using the connect
+          method. Just because the signal was able to be sent to the board, does not
+          mean the board stopped streaming.
+**Author**: AJ Keller (@aj-ptw)
+<a name="Wifi+syncInfo"></a>
+
+### wifi.syncInfo(o) ⇒ <code>Promise.&lt;TResult&gt;</code>
+Sync the info of this wifi module
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| o | <code>Object</code> |  |
+| o.examineMode | <code>Boolean</code> | Set this option true to connect to the WiFi Shield even if there is no board attached. |
+
+<a name="Wifi+write"></a>
+
+### wifi.write(data) ⇒ <code>Promise</code>
+Used to send data to the board.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - fulfilled if command was able to be sent
+**Author**: AJ Keller (@aj-ptw)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| data | <code>Array</code> \| <code>Buffer</code> \| <code>Number</code> \| <code>String</code> | The data to write out |
+
+<a name="Wifi+destroy"></a>
+
+### wifi.destroy()
+Call this to shut down the servers.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi..o"></a>
+
+### Wifi~o
+Configuring Options
+
+**Kind**: inner property of [<code>Wifi</code>](#Wifi)
+<a name="InitializationObject"></a>
+
+## InitializationObject : <code>Object</code>
+**Kind**: global typedef
+**Properties**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| attempts | <code>Number</code> | The number of times to try and perform an SSDP search before quitting. (Default 10) |
+| debug | <code>Boolean</code> | Print out a raw dump of bytes sent and received. (Default `false`) |
+| latency | <code>Number</code> | The latency, or amount of time between packet sends, of the WiFi shield. The time is in                      micro seconds! |
+| sampleRate | <code>Number</code> | The sample rate to set the board to. (Default is zero) |
+| sendCounts | <code>Boolean</code> | Send integer raw counts instead of scaled floats.           (Default `false`) |
+| verbose | <code>Boolean</code> | Print out useful debugging events. (Default `false`) |
+
 
 ## <a name="developing"></a> Developing:
 ### <a name="developing-running"></a> Running:

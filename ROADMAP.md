@@ -7,7 +7,7 @@ Make programming with OpenBCI reliable, easy, research grade and fun!
 ## Short term - what we're working on now
 
 - Unit tests!
-- Documentation
+- Documentation for public functions
 
 ## Medium term
 

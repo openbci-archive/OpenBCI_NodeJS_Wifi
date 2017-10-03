@@ -1,3 +1,13 @@
+# v0.2.2
+
+Docs for all!!
+
+### New Files
+
+* `CODE_OF_CONDUCT.md` added to govern community
+* `CONTRIBUTING.md` added to describe how people should contribute
+* `ROADMAP.md` added to outline a roadmap for project
+
 # v0.2.1
 
 ### Bug Fixes

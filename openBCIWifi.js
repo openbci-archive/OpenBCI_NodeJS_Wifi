@@ -135,6 +135,7 @@ function Wifi (options) {
   this._rawDataPacketToSample.verbose = this.options.verbose;
 
   /** Private Properties (keep alphabetical) */
+
   this._accelArray = [0, 0, 0];
   this._allInfo = null;
   this._boardConnected = false;
@@ -160,6 +161,7 @@ function Wifi (options) {
   this._version = null;
 
   /** Public Properties (keep alphabetical) */
+
   this.curOutputMode = wifiOutputModeRaw;
   this.wifiShieldArray = [];
 

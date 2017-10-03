@@ -62,8 +62,6 @@ Using WiFi physically solves limitations with the current state-of-the-art open 
 
 The founder of the OpenBCI WiFi Shield NodeJS SDK is [AJ Keller][link_aj_keller]. There's more information about him (and some pictures) in the [MeetTheTeam](MeetTheTeam.md) file.
 
-The development of this app is mentored by the team behind the [Rosalind Franklin Appathon][link_rfappapthon] - a challenge launched in 2015 to find and support the development of new mobile phone apps to empower women in STEMM. The competition is funded by the [Royal Society's Rosalind Franklin award][link_royalsociety_rfaward] which was won in 2014 by the Prof [Rachel McKendry][link_rachelmckendry]. Check out her [awesome lecture][link_rachelmckendry_talk] on _Harnessing the power of mobile phones and big data for global health_.
-
 <a href="https://www.mozillascience.org/about">
   <img
     src="http://mozillascience.github.io/working-open-workshop/assets/images/science-fox.svg"
@@ -120,14 +118,9 @@ Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and w
 
 1. [Installation](#install)
 2. [TL;DR](#tldr)
-3. [WiFi](#wifi)
-  1. [About](#about)
-  2. [General Overview](#general-overview)
-  3. [SDK Reference Guide](#sdk-reference-guide)
-    * [Constructor](#constructor)
-    * [Methods](#method)
-    * [Events](#event)
-    * [Constants](#constants)
+3. [WiFi](#wifi-docs)
+  1. [General Overview](#general-overview)
+  2. [Classes](#classes)
 4. [Developing](#developing)
 5. [Testing](#developing-testing)
 6. [Contribute](#contribute)
@@ -168,7 +161,7 @@ wifi.searchToStream({
   }).catch(console.log);
 ```
 
-# <a name="wifi"></a> Wifi
+## <a name="general-overview"></a> General Overview
 
 Initialization
 --------------
@@ -221,10 +214,10 @@ Sample properties:
 
 The power of this module is in using the sample emitter, to be provided with samples to do with as you wish.
 
-To get a ['sample'](#event-sample) event, you need to:
+To get a 'sample' event, you need to:
 -------------------------------------
-1. Install the ['sample'](#event-sample) event emitter
-2. Call [`.searchToStream(serialPortName)`](#method-connect)
+1. Install the 'sample' event emitter
+2. Call [`.searchToStream(serialPortName)`](#Wifi-connect)
 ```js
 const Wifi = require('openbci-wifi');
 let wifi = new Wifi({
@@ -250,7 +243,7 @@ wifi.searchToStream({
     streamStart: true // Call to start streaming in this function
   }).catch(console.log);
 ```
-Close the connection with [`.streamStop()`](#method-stream-stop) and disconnect with [`.disconnect()`](#method-disconnect)
+Close the connection with [`.streamStop()`](#Wifi+streamStop) and disconnect with [`.disconnect()`](#Wifi+disconnect)
 ```js
 const Wifi = require('openbci-wifi');
 const wifi = new Wifi();
@@ -281,7 +274,6 @@ wifi.streamStop().then(wifi.disconnect());
     * [new Wifi(options)](#new_Wifi_new)
     * _instance_
         * [.options](#Wifi+options) : [<code>InitializationObject</code>](#InitializationObject)
-        * [._accelArray](#Wifi+_accelArray)
         * [.curOutputMode](#Wifi+curOutputMode)
         * [.channelOff(channelNumber)](#Wifi+channelOff) ⇒ <code>Promise.&lt;T&gt;</code>
         * [.channelOn(channelNumber)](#Wifi+channelOn) ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
@@ -334,12 +326,6 @@ The initialization method to call first, before any other method.
 ### wifi.options : [<code>InitializationObject</code>](#InitializationObject)
 **Kind**: instance property of [<code>Wifi</code>](#Wifi)
 <a name="Wifi+_accelArray"></a>
-
-### wifi._accelArray
-Private Properties (keep alphabetical)
-
-**Kind**: instance property of [<code>Wifi</code>](#Wifi)
-<a name="Wifi+curOutputMode"></a>
 
 ### wifi.curOutputMode
 Public Properties (keep alphabetical)
@@ -715,3 +701,5 @@ MIT
 [link_openbci]: http://www.openbci.com
 [link_mozwow]: http://mozillascience.github.io/working-open-workshop/index.html
 [link_wifi_get_streaming]: examples/getStreaming/getStreaming.js
+[link_openleaderscohort]: https://medium.com/@MozOpenLeaders
+[link_mozsci]: https://science.mozilla.org

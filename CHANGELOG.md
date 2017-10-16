@@ -1,4 +1,4 @@
-# v0.2.2
+# v0.3.0
 
 Docs for all!!
 
@@ -7,6 +7,14 @@ Docs for all!!
 * `CODE_OF_CONDUCT.md` added to govern community
 * `CONTRIBUTING.md` added to describe how people should contribute
 * `ROADMAP.md` added to outline a roadmap for project
+
+### Bug Fixes
+
+* Bump utilities to 0.2.6 to get patch for wifi accel data
+
+### Breaking Changes
+
+* Removed index.js to conform to other cyton and ganglion modules
 
 # v0.2.1
 

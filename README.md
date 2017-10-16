@@ -178,7 +178,7 @@ For initializing with options, such as verbose print outs:
 
 ```js
 const Wifi = require('openbci-wifi');
-const ourBoard = new Cyton({
+const wifi = new Wifi({
   verbose: true
 });
 ```
@@ -187,14 +187,14 @@ or if you are using ES6:
 ```js
 import Wifi from 'openbci-wifi';
 import { Constants } from 'openbci-utilities';
-const ourBoard = new Cyton();
-ourBoard.connect(Constants.OBCISimulatorPortName);
+const wifi = new Wifi();
+wifi.connect("OpenBCI-2114");
 ```
 
 To debug, it's amazing, do:
 ```js
-const Cyton = require('openbci-cyton');
-const ourBoard = new Cyton({
+const Wifi = require('openbci-wifi');
+const wifi = new Wifi({
     debug: true
 });
 ```
@@ -217,7 +217,7 @@ The power of this module is in using the sample emitter, to be provided with sam
 To get a 'sample' event, you need to:
 -------------------------------------
 1. Install the 'sample' event emitter
-2. Call [`.searchToStream(serialPortName)`](#Wifi-connect)
+2. Call [`.searchToStream(_options_)`](#Wifi-connect)
 ```js
 const Wifi = require('openbci-wifi');
 let wifi = new Wifi({

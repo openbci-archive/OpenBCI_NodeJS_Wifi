@@ -10,7 +10,7 @@ Docs for all!!
 
 ### Bug Fixes
 
-* Bump utilities to 0.2.6 to get patch for wifi accel data
+* Bump utilities to 0.2.7 to get patch for wifi accel data and stop byte
 
 ### Breaking Changes
 

@@ -18,7 +18,7 @@ let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
   sendCounts: false,
-  latency: 10000
+  latency: 20000
 });
 
 let counter = 0;
@@ -28,7 +28,7 @@ let MAX_SAMPLE_NUMBER = 255;
 
 const sampleFunc = (sample) => {
   try {
-    console.log(JSON.stringify(sample));
+    // console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {

@@ -1,8 +1,8 @@
 {
   "name": "openbci-wifi",
-  "version": "0.2.2",
-  "description": "The official wifi package of Node.js SDK for the OpenBCI/Push The World Wifi SHeild for Biosensor Boards.",
-  "main": "index.js",
+  "version": "0.3.0",
+  "description": "The official SDK for the OpenBCI/Push The World Wifi Shield connected to either OpenBCI Cytons or Ganglions.",
+  "main": "openBCIWifi.js",
   "scripts": {
     "test": "semistandard | snazzy && mocha test",
     "test-cov": "istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec && codecov"
@@ -22,7 +22,7 @@
     "ip": "^1.1.5",
     "lodash": "^4.16.6",
     "node-ssdp": "^3.2.1",
-    "openbci-utilities": "^0.2.4",
+    "openbci-utilities": "^0.2.7",
     "safe-buffer": "^5.1.1"
   },
   "directories": {

@@ -14,10 +14,12 @@ const net = require('net');
 const http = require('http');
 const bufferEqual = require('buffer-equal');
 const Buffer = require('safe-buffer').Buffer;
+const dgram = require('dgram');
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
-
+const wifiOutputProtocolUDP = 'udp';
+const wifiOutputProtocolTCP = 'tcp';
 /**
  * Options object
  * @type {InitializationObject}
@@ -27,6 +29,7 @@ const _options = {
   attempts: 10,
   debug: false,
   latency: 10000,
+  protocol: [wifiOutputProtocolTCP, wifiOutputProtocolUDP],
   sampleRate: 0,
   sendCounts: false,
   simulate: false,
@@ -48,6 +51,8 @@ const _options = {
  * @property {Number} latency - The latency, or amount of time between packet sends, of the WiFi shield. The time is in
  *                      micro seconds!
  *
+ * @property {String} protocol - Either send the data over TCP or UDP. UDP seems better for either a bad router or slow
+ *                      router. Default is TCP
  * @property {Number} sampleRate - The sample rate to set the board to. (Default is zero)
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
@@ -164,6 +169,7 @@ function Wifi (options) {
 
   this.curOutputMode = wifiOutputModeRaw;
   this.wifiShieldArray = [];
+  this.wifiServerUDPPort = 0;
 
   /** Initializations */
 
@@ -928,7 +934,7 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
  * @private
  */
 Wifi.prototype._connectSocket = function () {
-  return this.post('/tcp', {
+  return this.post(`/${this.options.protocol}`, {
     ip: ip.address(),
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
@@ -945,20 +951,25 @@ Wifi.prototype.destroy = function () {
   if (this.wifiClient) {
     this.wifiClient.stop();
   }
+  if (this.wifiServerUDP) {
+    this.wifiServerUDP.removeAllListeners('error');
+    this.wifiServerUDP.removeAllListeners('message');
+    this.wifiServerUDP.removeAllListeners('listening');
+    this.wifiServerUDP.close();
+  }
   this.wifiClient = null;
 };
 
 Wifi.prototype.wifiGetLocalPort = function () {
-  return this.wifiServer.address().port;
+  if (this.options.protocol === wifiOutputProtocolUDP) {
+    return this.wifiServerUDPPort;
+  } else {
+    return this.wifiServer.address().port;
+  }
 };
 
 Wifi.prototype.wifiInitServer = function () {
-  let persistentBuffer = null;
-  const delimBuf = new Buffer("\r\n");
   this.wifiServer = net.createServer((socket) => {
-    // streamJSON.on("data", (sample) => {
-    //   console.log(sample);
-    // });
     socket.on('data', (data) => {
       this._processBytes(data);
     });
@@ -966,7 +977,34 @@ Wifi.prototype.wifiInitServer = function () {
       if (this.options.verbose) console.log('SSDP:',err);
     });
   }).listen();
-  if (this.options.verbose) console.log("Server on port: ", this.wifiGetLocalPort());
+  if (this.options.verbose) console.log("TCP: on port: ", this.wifiGetLocalPort());
+
+  this.wifiServerUDP = dgram.createSocket('udp4');
+
+  this.wifiServerUDP.on('error', (err) => {
+    if (this.options.verbose) console.log(`server error:\n${err.stack}`);
+    this.wifiServerUDP.close();
+  });
+
+  let lastMsg = null;
+
+  this.wifiServerUDP.on('message', (msg) => {
+    // obciDebug.debugBytes('<<', msg);
+    if (!bufferEqual(lastMsg, msg)) {
+      this._processBytes(msg);
+    }
+    lastMsg = msg;
+  });
+
+  this.wifiServerUDP.on('listening', () => {
+    const address = this.wifiServerUDP.address();
+    this.wifiServerUDPPort = address.port;
+    if (this.options.verbose) console.log(`server listening ${address.address}:${address.port}`);
+  });
+
+  this.wifiServerUDP.bind({
+    address: ip.address()
+  });
 };
 
 Wifi.prototype.processResponse = function (res, cb) {

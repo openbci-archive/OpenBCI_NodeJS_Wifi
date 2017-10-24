@@ -168,6 +168,7 @@ function Wifi (options) {
   /** Public Properties (keep alphabetical) */
 
   this.curOutputMode = wifiOutputModeRaw;
+  this.internalRawDataPackets = [];
   this.wifiShieldArray = [];
   this.wifiServerUDPPort = 0;
 
@@ -178,6 +179,36 @@ function Wifi (options) {
 
 // This allows us to use the emitter class freely outside of the module
 util.inherits(Wifi, EventEmitter);
+
+
+Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
+  if (this.internalRawDataPackets.length === 0) {
+    this.internalRawDataPackets = rawDataPackets;
+    return [];
+  } else {
+    let out = [];
+    let coldStorage = [];
+    _.forEach(rawDataPackets, (newRDP) => {
+      let found = false;
+      _.forEach(this.internalRawDataPackets, (oldRDP) => {
+        if (!found && bufferEqual(newRDP, oldRDP)) {
+          out.push(oldRDP);
+          found = true;
+        }
+      });
+      if (!found) {
+        coldStorage.push(newRDP);
+      }
+    });
+    if (out.length === 0) {
+      out = this.internalRawDataPackets;
+      this.internalRawDataPackets = rawDataPackets;
+    } else {
+      this.internalRawDataPackets = coldStorage;
+    }
+    return out;
+  }
+};
 
 /**
  * @description Send a command to the board to turn a specified channel off
@@ -338,10 +369,6 @@ Wifi.prototype.connect = function (o) {
 Wifi.prototype.disconnect = function () {
   this._disconnected();
   return Promise.resolve();
-};
-
-Wifi.prototype.eraseCredentials = function () {
-  this.delete
 };
 
 /**

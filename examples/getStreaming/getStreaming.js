@@ -9,9 +9,9 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = false; // Pretty print any bytes in and out... it's amazing...
+let debug = true; // Pretty print any bytes in and out... it's amazing...
 let verbose = true; // Adds verbosity to functions
-const protocol = 'udp'; // or 'tcp'
+const protocol = 'tcp'; // or 'tcp'
 
 const k = require('openbci-utilities').Constants;
 let Wifi = require('../../openBCIWifi');
@@ -19,7 +19,7 @@ let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
   sendCounts: false,
-  latency: 30000,
+  latency: 16667,
   protocol: protocol
 });
 
@@ -60,7 +60,7 @@ const sampleFunc = (sample) => {
       let packetDiff = sample.sampleNumber - lastSampleNumber;
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
       if (packetDiff > 1) {
-        // console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
+        console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
         droppedPackets += packetDiff;
       }
       lastSampleNumber = sample.sampleNumber;

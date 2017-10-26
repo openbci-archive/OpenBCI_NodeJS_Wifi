@@ -30,6 +30,7 @@ const _options = {
   debug: false,
   latency: 10000,
   protocol: [wifiOutputProtocolTCP, wifiOutputProtocolUDP],
+  redundancy: false,
   sampleRate: 0,
   sendCounts: false,
   simulate: false,
@@ -53,6 +54,11 @@ const _options = {
  *
  * @property {String} protocol - Either send the data over TCP or UDP. UDP seems better for either a bad router or slow
  *                      router. Default is TCP
+ *
+ * @property {Boolean} redundancy - If set to false than no packets will be resent from the WiFi Shield and this driver will
+ *                      not attempt to buffer any packets. If set to true, with TCP, long writes are followed by the same packets
+ *                      getting sent again. With UDP. redundancy means send every packet twice! (Default is false)
+ *
  * @property {Number} sampleRate - The sample rate to set the board to. (Default is zero)
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
@@ -164,6 +170,7 @@ function Wifi (options) {
   this._shieldName = null;
   this._streaming = false;
   this._version = null;
+  this._lastPacketArrival = 0;
 
   /** Public Properties (keep alphabetical) */
 
@@ -180,7 +187,12 @@ function Wifi (options) {
 // This allows us to use the emitter class freely outside of the module
 util.inherits(Wifi, EventEmitter);
 
-
+/**
+ * This function is for redundancy after a long packet send, the wifi firmware can resend the same
+ *  packet again, using this till add redundancy on poor networks.
+ * @param rawDataPackets -
+ * @returns {Array}
+ */
 Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
   if (this.internalRawDataPackets.length === 0) {
     this.internalRawDataPackets = rawDataPackets;
@@ -750,6 +762,7 @@ Wifi.prototype.streamStart = function () {
   return new Promise((resolve, reject) => {
     if (this.isStreaming()) return reject('Error [.streamStart()]: Already streaming');
     this._streaming = true;
+    this._lastPacketArrival = 0;
     this.write(k.OBCIStreamStart)
       .then(() => {
         if (this.options.verbose) console.log('Sent stream start to board.');
@@ -882,6 +895,14 @@ Wifi.prototype._disconnected = function () {
 Wifi.prototype._processBytes = function (data) {
   if (this.options.debug) obciDebug.debugBytes('<<', data);
   if (this.curOutputMode === wifiOutputModeRaw) {
+    console.log(Date.now() - this._lastPacketArrival);
+    // if (this._lastPacketArrival > 0) {
+    //   if (Date.now() - this._lastPacketArrival > this._latency/1000 + 5) {
+    //     console.log(`Throwing out data packets`);
+    //     data = null;
+    //   }
+    // }
+    this._lastPacketArrival = Date.now();
     if (this.buffer) {
       this.prevBuffer = this.buffer;
       this.buffer = new Buffer([this.buffer, data]);
@@ -892,7 +913,11 @@ Wifi.prototype._processBytes = function (data) {
 
     this.buffer = output.buffer;
 
-    this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
+    if (this.options.redundancy) {
+      this._rawDataPacketToSample.rawDataPackets = this.bufferRawDataPackets(output.rawDataPackets);
+    } else {
+      this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
+    }
 
     _.forEach(this._rawDataPacketToSample.rawDataPackets, (rawDataPacket) => {
       this.emit(k.OBCIEmitterRawDataPacket, rawDataPacket);
@@ -966,7 +991,8 @@ Wifi.prototype._connectSocket = function () {
     output: this.curOutputMode,
     port: this.wifiGetLocalPort(),
     delimiter: false,
-    latency: this._latency
+    latency: this._latency,
+    redundancy: this.options.redundancy
   });
 };
 

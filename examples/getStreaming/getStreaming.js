@@ -9,9 +9,9 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = true; // Pretty print any bytes in and out... it's amazing...
+let debug = false; // Pretty print any bytes in and out... it's amazing...
 let verbose = true; // Adds verbosity to functions
-const protocol = 'tcp'; // or 'tcp'
+const protocol = 'udp'; // 'udp' or 'tcp'
 
 const k = require('openbci-utilities').Constants;
 let Wifi = require('../../openBCIWifi');
@@ -20,7 +20,8 @@ let wifi = new Wifi({
   verbose: verbose,
   sendCounts: false,
   latency: 16667,
-  protocol: protocol
+  protocol: protocol,
+  redundancy: false
 });
 
 let counter = 0;

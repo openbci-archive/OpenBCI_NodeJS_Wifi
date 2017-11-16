@@ -27,6 +27,7 @@ const wifiOutputProtocolTCP = 'tcp';
  */
 const _options = {
   attempts: 10,
+  burst: false,
   debug: false,
   latency: 10000,
   protocol: [wifiOutputProtocolTCP, wifiOutputProtocolUDP],
@@ -46,6 +47,9 @@ const _options = {
  * @typedef {Object} InitializationObject
  * @property {Number} attempts  - The number of times to try and perform an SSDP search before quitting. (Default 10)
  *
+ * @property {Boolean} burst - Only applies for UDP, but the wifi shield will send 3 of the same packets on UDP to
+ *                      increase the chance packets arrive to this module (Default false)
+ *
  * @property {Boolean} debug  - Print out a raw dump of bytes sent and received. (Default `false`)
  *
  * @property {Number} latency - The latency, or amount of time between packet sends, of the WiFi shield. The time is in
@@ -53,6 +57,7 @@ const _options = {
  *
  * @property {String} protocol - Either send the data over TCP or UDP. UDP seems better for either a bad router or slow
  *                      router. Default is TCP
+ *
  * @property {Number} sampleRate - The sample rate to set the board to. (Default is zero)
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
@@ -338,10 +343,6 @@ Wifi.prototype.connect = function (o) {
 Wifi.prototype.disconnect = function () {
   this._disconnected();
   return Promise.resolve();
-};
-
-Wifi.prototype.eraseCredentials = function () {
-  this.delete
 };
 
 /**
@@ -934,13 +935,24 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
  * @private
  */
 Wifi.prototype._connectSocket = function () {
-  return this.post(`/${this.options.protocol}`, {
-    ip: ip.address(),
-    output: this.curOutputMode,
-    port: this.wifiGetLocalPort(),
-    delimiter: false,
-    latency: this._latency
-  });
+  if (this.options.protocol === 'udp') {
+    return this.post(`/${this.options.protocol}`, {
+      ip: ip.address(),
+      output: this.curOutputMode,
+      port: this.wifiGetLocalPort(),
+      delimiter: false,
+      latency: this._latency,
+      redundancy: this.options.burst
+    });
+  } else {
+    return this.post(`/${this.options.protocol}`, {
+      ip: ip.address(),
+      output: this.curOutputMode,
+      port: this.wifiGetLocalPort(),
+      delimiter: false,
+      latency: this._latency
+    });
+  }
 };
 
 /**
@@ -989,7 +1001,6 @@ Wifi.prototype.wifiInitServer = function () {
   let lastMsg = null;
 
   this.wifiServerUDP.on('message', (msg) => {
-    // obciDebug.debugBytes('<<', msg);
     if (!bufferEqual(lastMsg, msg)) {
       this._processBytes(msg);
     }

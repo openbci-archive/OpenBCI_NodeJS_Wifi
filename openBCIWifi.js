@@ -169,10 +169,12 @@ function Wifi (options) {
   this._shieldName = null;
   this._streaming = false;
   this._version = null;
+  this._lastPacketArrival = 0;
 
   /** Public Properties (keep alphabetical) */
 
   this.curOutputMode = wifiOutputModeRaw;
+  this.internalRawDataPackets = [];
   this.wifiShieldArray = [];
   this.wifiServerUDPPort = 0;
 
@@ -183,6 +185,41 @@ function Wifi (options) {
 
 // This allows us to use the emitter class freely outside of the module
 util.inherits(Wifi, EventEmitter);
+
+/**
+ * This function is for redundancy after a long packet send, the wifi firmware can resend the same
+ *  packet again, using this till add redundancy on poor networks.
+ * @param rawDataPackets -
+ * @returns {Array}
+ */
+Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
+  if (this.internalRawDataPackets.length === 0) {
+    this.internalRawDataPackets = rawDataPackets;
+    return [];
+  } else {
+    let out = [];
+    let coldStorage = [];
+    _.forEach(rawDataPackets, (newRDP) => {
+      let found = false;
+      _.forEach(this.internalRawDataPackets, (oldRDP) => {
+        if (!found && bufferEqual(newRDP, oldRDP)) {
+          out.push(oldRDP);
+          found = true;
+        }
+      });
+      if (!found) {
+        coldStorage.push(newRDP);
+      }
+    });
+    if (out.length === 0) {
+      out = this.internalRawDataPackets;
+      this.internalRawDataPackets = rawDataPackets;
+    } else {
+      this.internalRawDataPackets = coldStorage;
+    }
+    return out;
+  }
+};
 
 /**
  * @description Send a command to the board to turn a specified channel off
@@ -724,6 +761,7 @@ Wifi.prototype.streamStart = function () {
   return new Promise((resolve, reject) => {
     if (this.isStreaming()) return reject('Error [.streamStart()]: Already streaming');
     this._streaming = true;
+    this._lastPacketArrival = 0;
     this.write(k.OBCIStreamStart)
       .then(() => {
         if (this.options.verbose) console.log('Sent stream start to board.');
@@ -866,6 +904,11 @@ Wifi.prototype._processBytes = function (data) {
 
     this.buffer = output.buffer;
 
+    // if (this.options.redundancy) {
+    //   this._rawDataPacketToSample.rawDataPackets = this.bufferRawDataPackets(output.rawDataPackets);
+    // } else {
+    //   this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
+    // }
     this._rawDataPacketToSample.rawDataPackets = output.rawDataPackets;
 
     _.forEach(this._rawDataPacketToSample.rawDataPackets, (rawDataPacket) => {

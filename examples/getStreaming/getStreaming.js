@@ -9,8 +9,9 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = false; // Pretty print any bytes in and out... it's amazing...
+let debug = true; // Pretty print any bytes in and out... it's amazing...
 let verbose = true; // Adds verbosity to functions
+const protocol = 'tcp'; // or 'udp'
 
 const k = require('openbci-utilities').Constants;
 let Wifi = require('../../openBCIWifi');
@@ -18,29 +19,50 @@ let wifi = new Wifi({
   debug: debug,
   verbose: verbose,
   sendCounts: false,
-  latency: 20000
+  latency: 16667,
+  protocol: protocol
 });
 
 let counter = 0;
 let sampleRateCounterInterval = null;
 let lastSampleNumber = 0;
 let MAX_SAMPLE_NUMBER = 255;
-
+let droppedPacketArray = [];
+let sampleRateArray = [];
+let droppedPackets = 0;
 const sampleFunc = (sample) => {
   try {
-    // console.log(JSON.stringify(sample));
+    console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
         sampleRateCounterInterval = setInterval(() => {
-          console.log(`SR: ${counter}`);
+          console.log(`\nSR: ${counter}`);
+          console.log(`Dropped ${droppedPackets} packets`);
+          droppedPacketArray.push(droppedPackets);
+          let sum = 0;
+          droppedPacketArray.map((droppedPacketCnt) => {
+            sum += droppedPacketCnt;
+          });
+          console.log(`Dropped packet average: ${sum / droppedPacketArray.length}`);
+
+          sampleRateArray.push(counter);
+          sum = 0;
+          sampleRateArray.map((counter) => {
+            sum += counter;
+          });
+          droppedPackets = 0;
           counter = 0;
+
         }, 1000);
       }
 
       let packetDiff = sample.sampleNumber - lastSampleNumber;
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
-      if (packetDiff > 1) console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
+      if (packetDiff > 1) {
+        console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
+        droppedPackets += packetDiff;
+      }
       lastSampleNumber = sample.sampleNumber;
       // console.log(JSON.stringify(sample));
     }
@@ -56,7 +78,8 @@ wifi.on(k.OBCIEmitterSample, sampleFunc);
 // wifi.on(k.OBCIEmitterRawDataPacket, console.log);
 
 wifi.searchToStream({
-    streamStart: true
+    streamStart: true,
+    sampleRate: 1000
   })
   .then(() => {
     if (wifi.getNumberOfChannels() === 4) {

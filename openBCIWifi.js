@@ -304,9 +304,12 @@ Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputAppl
  * @description The essential precursor method to be called initially to establish a
  *              ble connection to the OpenBCI ganglion board.
  * @param o {Object}
+ * @param o.burst {Boolean} - Set this option true to have UDP do burst mode 3x
  * @param o.examineMode {Boolean} - Set this option true to connect to the WiFi Shield even if there is no board attached.
  * @param o.ipAddress {String} - The ip address of the shield if you know it
  * @param o.latency {Number} - If you want to set the latency of the system you can here too.
+ * @param o.protocol {String} - Either send the data over TCP or UDP. UDP seems better for either a bad router or slow
+ *                      router. Default is TCP
  * @param o.sampleRate - The sample rate to set the board connected to the wifi shield
  * @param o.shieldName {String} - If supplied, will search for a shield by this name, if not supplied, will connect to
  *  the first shield found.
@@ -328,6 +331,12 @@ Wifi.prototype.connect = function (o) {
     }
     if (o.hasOwnProperty('latency')) {
       this._latency = o.latency;
+    }
+    if (o.hasOwnProperty('burst')) {
+      this.options.burst = o.burst;
+    }
+    if (o.hasOwnProperty('protocol')) {
+      this.options.protocol = o.protocol;
     }
     this._ipAddress = ipAddress;
     if (this.options.verbose) console.log(`Attempting to connect to ${this._ipAddress}`);
@@ -982,7 +991,7 @@ Wifi.prototype._connectSocket = function () {
     return this.post(`/${this.options.protocol}`, {
       ip: ip.address(),
       output: this.curOutputMode,
-      port: this.wifiGetLocalPort(),
+      port: this.wifiGetLocalPortUDP(),
       delimiter: false,
       latency: this._latency,
       redundancy: this.options.burst
@@ -991,7 +1000,7 @@ Wifi.prototype._connectSocket = function () {
     return this.post(`/${this.options.protocol}`, {
       ip: ip.address(),
       output: this.curOutputMode,
-      port: this.wifiGetLocalPort(),
+      port: this.wifiGetLocalPortTCP(),
       delimiter: false,
       latency: this._latency
     });
@@ -1023,6 +1032,14 @@ Wifi.prototype.wifiGetLocalPort = function () {
   }
 };
 
+Wifi.prototype.wifiGetLocalPortUDP = function () {
+  return this.wifiServerUDPPort;
+};
+
+Wifi.prototype.wifiGetLocalPortTCP = function () {
+  return this.wifiServer.address().port;
+};
+
 Wifi.prototype.wifiInitServer = function () {
   this.wifiServer = net.createServer((socket) => {
     socket.on('data', (data) => {
@@ -1032,7 +1049,7 @@ Wifi.prototype.wifiInitServer = function () {
       if (this.options.verbose) console.log('SSDP:',err);
     });
   }).listen();
-  if (this.options.verbose) console.log("TCP: on port: ", this.wifiGetLocalPort());
+  if (this.options.verbose) console.log("TCP: on port: ", this.wifiGetLocalPortTCP());
 
   this.wifiServerUDP = dgram.createSocket('udp4');
 
@@ -1115,6 +1132,7 @@ Wifi.prototype.delete = function (path) {
       resolve(res);
     };
     this.once('res', resFunc);
+    if (this.options.verbose) console.log(`-> DELETE: ${this._ipAddress}${path}`);
     this._delete(this._ipAddress, path, (err) => {
       if (err) {
         if (this.options.verbose) {
@@ -1158,6 +1176,7 @@ Wifi.prototype.get = function (path) {
       resolve(res);
     };
     this.once('res', resFunc);
+    if (this.options.verbose) console.log(`-> GET: ${this._ipAddress}${path}`);
     this._get(this._ipAddress, path, (err) => {
       if (err) {
         if (this.options.verbose) {
@@ -1209,6 +1228,7 @@ Wifi.prototype.post = function (path, payload) {
       resolve(res);
     };
     this.once('res', resFunc);
+    if (this.options.verbose) console.log(`-> POST: ${this._ipAddress}${path} ${JSON.stringify(payload)}`);
     this._post(this._ipAddress, path, payload, (err) => {
       if (err) {
         if (this.options.verbose) {

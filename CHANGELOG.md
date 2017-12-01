@@ -1,3 +1,13 @@
+# v0.3.2
+
+### New Example
+
+* WiFi direct example!
+
+### Bug Fixes
+
+* Now starting both UDP and TCP systems incase so user can select at `connect` function.
+
 # v0.3.1
 
 ### New Features

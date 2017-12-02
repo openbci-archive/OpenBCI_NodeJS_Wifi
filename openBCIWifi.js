@@ -33,13 +33,6 @@ const _options = {
   protocol: [wifiOutputProtocolTCP, wifiOutputProtocolUDP],
   sampleRate: 0,
   sendCounts: false,
-  simulate: false,
-  simulatorBoardFailure: false,
-  simulatorHasAccelerometer: true,
-  simulatorInternalClockDrift: 0,
-  simulatorInjectAlpha: true,
-  simulatorInjectLineNoise: [k.OBCISimulatorLineNoiseHz60, k.OBCISimulatorLineNoiseHz50, k.OBCISimulatorLineNoiseNone],
-  simulatorSampleRate: 200,
   verbose: false
 };
 
@@ -62,26 +55,6 @@ const _options = {
  *
  * @property {Boolean} sendCounts  - Send integer raw counts instead of scaled floats.
  *           (Default `false`)
- *
- * @property {Boolean} simulate  - (IN-OP) Full functionality, just mock data. Must attach Daisy module by setting
- *                  `simulatorDaisyModuleAttached` to `true` in order to get 16 channels. (Default `false`)
- *
- * @property {Boolean} simulatorBoardFailure  - (IN-OP)  Simulates board communications failure. This occurs when the RFduino on
- *                  the board is not polling the RFduino on the dongle. (Default `false`)
- *
- * @property {Boolean} simulatorHasAccelerometer  - Sets simulator to send packets with accelerometer data. (Default `true`)
- *
- * @property {Boolean} simulatorInjectAlpha  - Inject a 10Hz alpha wave in Channels 1 and 2 (Default `true`)
- *
- * @property {String} simulatorInjectLineNoise  - Injects line noise on channels.
- *          3 Possible Options:
- *              `60Hz` - 60Hz line noise (Default) [America]
- *              `50Hz` - 50Hz line noise [Europe]
- *              `none` - Do not inject line noise.
- *
- * @property {Number} simulatorSampleRate  - The sample rate to use for the simulator. Simulator will set to 125 if
- *                  `simulatorDaisyModuleAttached` is set `true`. However, setting this option overrides that
- *                  setting and this sample rate will be used. (Default is `250`)
  *
  * @property {Boolean} verbose  - Print out useful debugging events. (Default `false`)
  *
@@ -191,6 +164,7 @@ util.inherits(Wifi, EventEmitter);
  *  packet again, using this till add redundancy on poor networks.
  * @param rawDataPackets -
  * @returns {Array}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
   if (this.internalRawDataPackets.length === 0) {
@@ -394,6 +368,7 @@ Wifi.prototype.disconnect = function () {
 /**
  * @description Checks if the driver is connected to a board.
  * @returns {boolean} - True if connected.
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.isConnected = function () {
   return this._connected;
@@ -402,6 +377,7 @@ Wifi.prototype.isConnected = function () {
 /**
  * @description Checks if noble is currently scanning.
  * @returns {boolean} - True if streaming.
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.isSearching = function () {
   return this._scanning;
@@ -410,6 +386,7 @@ Wifi.prototype.isSearching = function () {
 /**
  * @description Checks if the board is currently sending samples.
  * @returns {boolean} - True if streaming.
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.isStreaming = function () {
   return this._streaming;
@@ -419,6 +396,7 @@ Wifi.prototype.isStreaming = function () {
 /**
  * @description Get the current board type
  * @returns {*}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getBoardType = function () {
   return this._boardType;
@@ -428,6 +406,7 @@ Wifi.prototype.getBoardType = function () {
  * @description Get the firmware version of connected and synced wifi shield.
  * @returns {String} The version number
  * Note: This is dependent on if you called connect
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getFirmwareVersion = function () {
   return this._version;
@@ -436,6 +415,7 @@ Wifi.prototype.getFirmwareVersion = function () {
 /**
  * Return the ip address of the attached WiFi Shield device.
  * @return {null|String}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getIpAddress = function () {
   return this._ipAddress;
@@ -444,6 +424,7 @@ Wifi.prototype.getIpAddress = function () {
 /**
  * Return the latency to be set on the WiFi Shield.
  * @return {Number}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getLatency = function () {
   return this._latency;
@@ -452,6 +433,7 @@ Wifi.prototype.getLatency = function () {
 /**
  * Return the MAC address of the attached WiFi Shield device.
  * @return {null|String}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getMacAddress = function () {
   return this._macAddress;
@@ -460,8 +442,8 @@ Wifi.prototype.getMacAddress = function () {
 /**
  * @description This function is used as a convenience method to determine how many
  *              channels the current board is using.
- * @returns {Number} A number
  * Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
+ * @returns {Number} A number
  * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getNumberOfChannels = function () {
@@ -470,8 +452,9 @@ Wifi.prototype.getNumberOfChannels = function () {
 
 /**
  * @description Get the the current sample rate is.
+ *  Note: This is dependent on if you configured the board correctly on setup options
  * @returns {Number} The sample rate
- * Note: This is dependent on if you configured the board correctly on setup options
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getSampleRate = function () {
   return this._sampleRate;
@@ -480,6 +463,7 @@ Wifi.prototype.getSampleRate = function () {
 /**
  * Return the shield name of the attached WiFi Shield device.
  * @return {null|String}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.getShieldName = function () {
   return this._shieldName;
@@ -488,6 +472,7 @@ Wifi.prototype.getShieldName = function () {
 /**
  * Call to start testing impedance.
  * @return {global.Promise|Promise}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.impedanceStart = function () {
   if (this.getBoardType() !== k.OBCIBoardGanglion) return Promise.reject(Error('Expected board type to be Ganglion'));
@@ -497,6 +482,7 @@ Wifi.prototype.impedanceStart = function () {
 /**
  * Call to stop testing impedance.
  * @return {global.Promise|Promise}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.impedanceStop = function () {
   if (this.getBoardType() !== k.OBCIBoardGanglion) return Promise.reject(Error('Expected board type to be Ganglion'));
@@ -513,6 +499,7 @@ Wifi.prototype.impedanceStop = function () {
  * @param o.timeout {Number} - The time in milli seconds to wait for the system to try and auto find and connect to the
  *  shield.
  * @return {Promise} - Resolves after successful connection, rejects otherwise with Error.
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.searchToStream = function (o) {
   return new Promise((resolve, reject) => {
@@ -551,6 +538,7 @@ Wifi.prototype.searchToStream = function (o) {
  * Set the sample rate of the remote OpenBCI shield
  * @param sampleRate {Number} the sample rate you want to set to.
  * @returns {Promise}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.setSampleRate = function (sampleRate) {
   const numPattern = /\d+/g;
@@ -576,6 +564,7 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
 /**
  * Returns the sample rate from the board
  * @returns {Promise}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.syncSampleRate = function () {
   const numPattern = /\d+/g;
@@ -599,6 +588,7 @@ Wifi.prototype.syncSampleRate = function () {
  * @description List available peripherals so the user can choose a device when not
  *              automatically found.
  * @returns {Promise} - If scan was started
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.searchStart = function () {
   return new Promise((resolve) => {
@@ -651,6 +641,7 @@ Wifi.prototype.searchStart = function () {
 /**
  * Called to end a search.
  * @return {global.Promise|Promise}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.searchStop = function () {
   if (this.wifiClient) this.wifiClient.stop();
@@ -739,6 +730,7 @@ Wifi.prototype.softReset = function () {
  * @description Tells the WiFi Shield to forget it's network credentials. This will cause the board to drop all
  *  connections.
  * @returns {Promise} Resolves when WiFi Shield has been reset and the module disconnects.
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.eraseWifiCredentials = function () {
   return new Promise((resolve, reject) => {
@@ -805,6 +797,7 @@ Wifi.prototype.streamStop = function () {
  * @param o {Object}
  * @param o.examineMode {Boolean} - Set this option true to connect to the WiFi Shield even if there is no board attached.
  * @returns {Promise.<TResult>}
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.syncInfo = function (o) {
   return this.get('/board')
@@ -899,6 +892,7 @@ Wifi.prototype._disconnected = function () {
  * Route incoming data to proper functions
  * @param data {Buffer} - Data buffer from noble Wifi.
  * @private
+ * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype._processBytes = function (data) {
   if (this.options.debug) obciDebug.debugBytes('<<', data);
@@ -1024,6 +1018,11 @@ Wifi.prototype.destroy = function () {
   this.wifiClient = null;
 };
 
+/**
+ * Get the local port number of either the TCP or UDP server. Based on `options.protocol` being set to
+ *  either `udp` or `tcp`.
+ * @returns {number} The port number that was dynamically assigned to this module on startup.
+ */
 Wifi.prototype.wifiGetLocalPort = function () {
   if (this.options.protocol === wifiOutputProtocolUDP) {
     return this.wifiServerUDPPort;
@@ -1032,14 +1031,25 @@ Wifi.prototype.wifiGetLocalPort = function () {
   }
 };
 
+/**
+ * Get the local port number of the UDP server.
+ * @returns {number} The port number that was dynamically assigned to this module on startup.
+ */
 Wifi.prototype.wifiGetLocalPortUDP = function () {
   return this.wifiServerUDPPort;
 };
 
+/**
+ * Get the local port number of the UDP server.
+ * @returns {number} The port number that was dynamically assigned to this module on startup.
+ */
 Wifi.prototype.wifiGetLocalPortTCP = function () {
   return this.wifiServer.address().port;
 };
 
+/**
+ * Initialization function that will start the TCP server and bind the UDP port.
+ */
 Wifi.prototype.wifiInitServer = function () {
   this.wifiServer = net.createServer((socket) => {
     socket.on('data', (data) => {
@@ -1078,7 +1088,13 @@ Wifi.prototype.wifiInitServer = function () {
   });
 };
 
-Wifi.prototype.processResponse = function (res, cb) {
+/**
+ * Used to process a response from either a GET, POST, or DELETE.
+ * @param res {String} The response from the server or client
+ * @param cb {callback} Callback to know the response and everything is done. Can contain the message.
+ * @private
+ */
+Wifi.prototype._processResponse = function (res, cb) {
   if (this.options.verbose) {
     console.log(`STATUS: ${res.statusCode}`);
     console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
@@ -1109,7 +1125,7 @@ Wifi.prototype._delete = function (host, path, cb) {
   };
 
   const req = http.request(options, (res) => {
-    this.processResponse(res, (err) => {
+    this._processResponse(res, (err) => {
       if (err) {
         if (cb) cb(err);
       } else {
@@ -1126,6 +1142,11 @@ Wifi.prototype._delete = function (host, path, cb) {
   req.end();
 };
 
+/**
+ * Send a delete message to the connected wifi shield.
+ * @param path {String}  - the path/route to send the delete message to
+ * @returns {Promise} - Resolves if gets a response from the client/server, rejects with error
+ */
 Wifi.prototype.delete = function (path) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {
@@ -1153,7 +1174,7 @@ Wifi.prototype._get = function (host, path, cb) {
   };
 
   const req = http.request(options, (res) => {
-    this.processResponse(res, (err) => {
+    this._processResponse(res, (err) => {
       if (err) {
         if (cb) cb(err);
       } else {
@@ -1170,6 +1191,11 @@ Wifi.prototype._get = function (host, path, cb) {
   req.end();
 };
 
+/**
+ * Send a GET message to the connected wifi shield.
+ * @param path {String}  - the path/route to send the GET message to
+ * @returns {Promise} - Resolves if gets/with a response from the client/server, rejects with error
+ */
 Wifi.prototype.get = function (path) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {
@@ -1202,7 +1228,7 @@ Wifi.prototype._post = function (host, path, payload, cb) {
   };
 
   const req = http.request(options, (res) => {
-    this.processResponse(res, (err) => {
+    this._processResponse(res, (err) => {
       if (err) {
         if (cb) cb.call(this, err);
       } else {
@@ -1221,7 +1247,12 @@ Wifi.prototype._post = function (host, path, payload, cb) {
   req.end();
 };
 
-//TODO: Implement a function that allows us to async wait for res
+/**
+ * Send a POST message to the connected wifi shield.
+ * @param path {String}  - the path/route to send the POST message to
+ * @param payload {*} - can really be anything but should be a JSON object.
+ * @returns {Promise} - Resolves if gets a response from the client/server, rejects with error
+ */
 Wifi.prototype.post = function (path, payload) {
   return new Promise((resolve, reject) => {
     const resFunc = (res) => {

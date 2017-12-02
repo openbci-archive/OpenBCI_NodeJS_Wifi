@@ -1,4 +1,10 @@
-# v0.3.2
+# v0.4.0
+
+### New Features
+
+* Add UDP support! New option on connect and Constructor called `protocol` that can be either `'udp'` or `'tcp'` (Default is `tcp`)
+* Add burst mode UDP support! New option on connect and Constructor called `burst` that can be either `true` or `false` (default `false`). When `true` and `protocol` option is UDP, will tell WiFi Shield to send every packet three times. The module will automatically only process new data.
+* Went through all the docs again and cleaned up!
 
 ### New Example
 

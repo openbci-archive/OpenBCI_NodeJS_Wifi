@@ -7,9 +7,8 @@ Make programming with OpenBCI reliable, easy, research grade and fun!
 ## Short term - what we're working on now
 
 - Unit tests!
-- Documentation for public functions
 
 ## Medium term
 
-- Browserify this module
-- Examples
+- Make this module work in the browser
+- Get the simulator added for the wifi shield

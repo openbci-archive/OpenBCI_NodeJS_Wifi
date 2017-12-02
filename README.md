@@ -113,26 +113,25 @@ Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and w
 
 # Documentation
 
-### Table of Contents:
+## Table of Contents:
 ---
 
 1. [Installation](#install)
 2. [TL;DR](#tldr)
-3. [WiFi](#wifi-docs)
-  1. [General Overview](#general-overview)
-  2. [Classes](#classes)
-4. [Developing](#developing)
-5. [Testing](#developing-testing)
-6. [Contribute](#contribute)
-7. [License](#license)
+3. [Developing](#developing)
+4. [Contribute](#contribute)
+5. [License](#license)
+6. [General Overview](#general-overview)
+7. [Classes](#classes)
+8. [Typedefs](#typedefs)
+9. [Wifi](#wifi)
 
-
-### <a name="install"></a> Installation:
+## <a name="install"></a> Installation:
 ```
 npm install openbci-wifi
 ```
 
-### <a name="tldr"></a> TL;DR:
+## <a name="tldr"></a> TL;DR:
 Get connected and [start streaming right now with the example code](examples/getStreaming/getStreaming.js).
 
 ```ecmascript 6
@@ -160,6 +159,35 @@ wifi.searchToStream({
     streamStart: true // Call to start streaming in this function
   }).catch(console.log);
 ```
+## <a name="developing"></a> Developing:
+### <a name="developing-running"></a> Running:
+
+```
+npm install
+```
+
+### <a name="developing-testing"></a> Testing:
+
+```
+npm test
+```
+
+## <a name="contribute"></a> Contribute:
+
+1. Checkout [contributors' guidelines](CONTRIBUTING.md)
+2. Fork it!
+3. Branch off of `dev`: `git checkout dev`
+4. Create your feature branch: `git checkout -b my-new-feature`
+5. Make changes
+6. If adding a feature, please add test coverage.
+7. Ensure tests all pass. (`npm test`)
+8. Commit your changes: `git commit -m 'Add some feature'`
+9. Push to the branch: `git push origin my-new-feature`
+10. Submit a pull request. Make sure it is based off of the `dev` branch when submitting! :D
+
+## <a name="license"></a> License:
+
+MIT
 
 ## <a name="general-overview"></a> General Overview
 
@@ -274,7 +302,9 @@ wifi.streamStop().then(wifi.disconnect());
     * [new Wifi(options)](#new_Wifi_new)
     * _instance_
         * [.options](#Wifi+options) : [<code>InitializationObject</code>](#InitializationObject)
+        * [._accelArray](#Wifi+_accelArray)
         * [.curOutputMode](#Wifi+curOutputMode)
+        * [.bufferRawDataPackets(rawDataPackets)](#Wifi+bufferRawDataPackets) ⇒ <code>Array</code>
         * [.channelOff(channelNumber)](#Wifi+channelOff) ⇒ <code>Promise.&lt;T&gt;</code>
         * [.channelOn(channelNumber)](#Wifi+channelOn) ⇒ <code>Promise.&lt;T&gt;</code> \| <code>\*</code>
         * [.channelSet(channelNumber, powerDown, gain, inputType, bias, srb2, srb1)](#Wifi+channelSet) ⇒ <code>Promise</code>
@@ -308,6 +338,13 @@ wifi.streamStop().then(wifi.disconnect());
         * [.syncInfo(o)](#Wifi+syncInfo) ⇒ <code>Promise.&lt;TResult&gt;</code>
         * [.write(data)](#Wifi+write) ⇒ <code>Promise</code>
         * [.destroy()](#Wifi+destroy)
+        * [.wifiGetLocalPort()](#Wifi+wifiGetLocalPort) ⇒ <code>number</code>
+        * [.wifiGetLocalPortUDP()](#Wifi+wifiGetLocalPortUDP) ⇒ <code>number</code>
+        * [.wifiGetLocalPortTCP()](#Wifi+wifiGetLocalPortTCP) ⇒ <code>number</code>
+        * [.wifiInitServer()](#Wifi+wifiInitServer)
+        * [.delete(path)](#Wifi+delete) ⇒ <code>Promise</code>
+        * [.get(path)](#Wifi+get) ⇒ <code>Promise</code>
+        * [.post(path, payload)](#Wifi+post) ⇒ <code>Promise</code>
     * _inner_
         * [~o](#Wifi..o)
 
@@ -327,10 +364,29 @@ The initialization method to call first, before any other method.
 **Kind**: instance property of [<code>Wifi</code>](#Wifi)
 <a name="Wifi+_accelArray"></a>
 
+### wifi._accelArray
+Private Properties (keep alphabetical)
+
+**Kind**: instance property of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+curOutputMode"></a>
+
 ### wifi.curOutputMode
 Public Properties (keep alphabetical)
 
 **Kind**: instance property of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+bufferRawDataPackets"></a>
+
+### wifi.bufferRawDataPackets(rawDataPackets) ⇒ <code>Array</code>
+This function is for redundancy after a long packet send, the wifi firmware can resend the same
+ packet again, using this till add redundancy on poor networks.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
+
+| Param | Description |
+| --- | --- |
+| rawDataPackets | - |
+
 <a name="Wifi+channelOff"></a>
 
 ### wifi.channelOff(channelNumber) ⇒ <code>Promise.&lt;T&gt;</code>
@@ -402,9 +458,11 @@ The essential precursor method to be called initially to establish a
 | Param | Type | Description |
 | --- | --- | --- |
 | o | <code>Object</code> |  |
+| o.burst | <code>Boolean</code> | Set this option true to have UDP do burst mode 3x |
 | o.examineMode | <code>Boolean</code> | Set this option true to connect to the WiFi Shield even if there is no board attached. |
 | o.ipAddress | <code>String</code> | The ip address of the shield if you know it |
 | o.latency | <code>Number</code> | If you want to set the latency of the system you can here too. |
+| o.protocol | <code>String</code> | Either send the data over TCP or UDP. UDP seems better for either a bad router or slow                      router. Default is TCP |
 | o.sampleRate |  | The sample rate to set the board connected to the wifi shield |
 | o.shieldName | <code>String</code> | If supplied, will search for a shield by this name, if not supplied, will connect to  the first shield found. |
 | o.streamStart | <code>Boolean</code> | Set `true` if you want the board to start streaming. |
@@ -425,6 +483,7 @@ Checks if the driver is connected to a board.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>boolean</code> - - True if connected.
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+isSearching"></a>
 
 ### wifi.isSearching() ⇒ <code>boolean</code>
@@ -432,6 +491,7 @@ Checks if noble is currently scanning.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>boolean</code> - - True if streaming.
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+isStreaming"></a>
 
 ### wifi.isStreaming() ⇒ <code>boolean</code>
@@ -439,12 +499,14 @@ Checks if the board is currently sending samples.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>boolean</code> - - True if streaming.
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getBoardType"></a>
 
 ### wifi.getBoardType() ⇒ <code>\*</code>
 Get the current board type
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getFirmwareVersion"></a>
 
 ### wifi.getFirmwareVersion() ⇒ <code>String</code>
@@ -453,60 +515,68 @@ Get the firmware version of connected and synced wifi shield.
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>String</code> - The version number
 Note: This is dependent on if you called connect
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getIpAddress"></a>
 
 ### wifi.getIpAddress() ⇒ <code>null</code> \| <code>String</code>
 Return the ip address of the attached WiFi Shield device.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getLatency"></a>
 
 ### wifi.getLatency() ⇒ <code>Number</code>
 Return the latency to be set on the WiFi Shield.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getMacAddress"></a>
 
 ### wifi.getMacAddress() ⇒ <code>null</code> \| <code>String</code>
 Return the MAC address of the attached WiFi Shield device.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getNumberOfChannels"></a>
 
 ### wifi.getNumberOfChannels() ⇒ <code>Number</code>
 This function is used as a convenience method to determine how many
              channels the current board is using.
+Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>Number</code> - A number
-Note: This is dependent on if your wifi shield is attached to another board and how many channels are there.
 **Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getSampleRate"></a>
 
 ### wifi.getSampleRate() ⇒ <code>Number</code>
 Get the the current sample rate is.
+ Note: This is dependent on if you configured the board correctly on setup options
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>Number</code> - The sample rate
-Note: This is dependent on if you configured the board correctly on setup options
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+getShieldName"></a>
 
 ### wifi.getShieldName() ⇒ <code>null</code> \| <code>String</code>
 Return the shield name of the attached WiFi Shield device.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+impedanceStart"></a>
 
 ### wifi.impedanceStart() ⇒ <code>global.Promise</code> \| <code>Promise</code>
 Call to start testing impedance.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+impedanceStop"></a>
 
 ### wifi.impedanceStop() ⇒ <code>global.Promise</code> \| <code>Promise</code>
 Call to stop testing impedance.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+searchToStream"></a>
 
 ### wifi.searchToStream(o) ⇒ <code>Promise</code>
@@ -514,6 +584,7 @@ Used to search for an OpenBCI WiFi Shield. Will connect to the first one if no `
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>Promise</code> - - Resolves after successful connection, rejects otherwise with Error.
+**Author**: AJ Keller (@aj-ptw)
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -529,6 +600,7 @@ Used to search for an OpenBCI WiFi Shield. Will connect to the first one if no `
 Set the sample rate of the remote OpenBCI shield
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -540,6 +612,7 @@ Set the sample rate of the remote OpenBCI shield
 Returns the sample rate from the board
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+searchStart"></a>
 
 ### wifi.searchStart() ⇒ <code>Promise</code>
@@ -548,12 +621,14 @@ List available peripherals so the user can choose a device when not
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>Promise</code> - - If scan was started
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+searchStop"></a>
 
 ### wifi.searchStop() ⇒ <code>global.Promise</code> \| <code>Promise</code>
 Called to end a search.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+sdStop"></a>
 
 ### wifi.sdStop() ⇒ <code>Promise</code>
@@ -588,6 +663,7 @@ Tells the WiFi Shield to forget it's network credentials. This will cause the bo
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
 **Returns**: <code>Promise</code> - Resolves when WiFi Shield has been reset and the module disconnects.
+**Author**: AJ Keller (@aj-ptw)
 <a name="Wifi+streamStart"></a>
 
 ### wifi.streamStart() ⇒ <code>Promise</code>
@@ -616,6 +692,7 @@ Note: You must have successfully connected to an OpenBCI board using the connect
 Sync the info of this wifi module
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Author**: AJ Keller (@aj-ptw)
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -641,6 +718,71 @@ Used to send data to the board.
 Call this to shut down the servers.
 
 **Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+wifiGetLocalPort"></a>
+
+### wifi.wifiGetLocalPort() ⇒ <code>number</code>
+Get the local port number of either the TCP or UDP server. Based on `options.protocol` being set to
+ either `udp` or `tcp`.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>number</code> - The port number that was dynamically assigned to this module on startup.
+<a name="Wifi+wifiGetLocalPortUDP"></a>
+
+### wifi.wifiGetLocalPortUDP() ⇒ <code>number</code>
+Get the local port number of the UDP server.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>number</code> - The port number that was dynamically assigned to this module on startup.
+<a name="Wifi+wifiGetLocalPortTCP"></a>
+
+### wifi.wifiGetLocalPortTCP() ⇒ <code>number</code>
+Get the local port number of the UDP server.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>number</code> - The port number that was dynamically assigned to this module on startup.
+<a name="Wifi+wifiInitServer"></a>
+
+### wifi.wifiInitServer()
+Initialization function that will start the TCP server and bind the UDP port.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+<a name="Wifi+delete"></a>
+
+### wifi.delete(path) ⇒ <code>Promise</code>
+Send a delete message to the connected wifi shield.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Resolves if gets a response from the client/server, rejects with error
+
+| Param | Type | Description |
+| --- | --- | --- |
+| path | <code>String</code> | the path/route to send the delete message to |
+
+<a name="Wifi+get"></a>
+
+### wifi.get(path) ⇒ <code>Promise</code>
+Send a GET message to the connected wifi shield.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Resolves if gets/with a response from the client/server, rejects with error
+
+| Param | Type | Description |
+| --- | --- | --- |
+| path | <code>String</code> | the path/route to send the GET message to |
+
+<a name="Wifi+post"></a>
+
+### wifi.post(path, payload) ⇒ <code>Promise</code>
+Send a POST message to the connected wifi shield.
+
+**Kind**: instance method of [<code>Wifi</code>](#Wifi)
+**Returns**: <code>Promise</code> - - Resolves if gets a response from the client/server, rejects with error
+
+| Param | Type | Description |
+| --- | --- | --- |
+| path | <code>String</code> | the path/route to send the POST message to |
+| payload | <code>\*</code> | can really be anything but should be a JSON object. |
+
 <a name="Wifi..o"></a>
 
 ### Wifi~o
@@ -656,41 +798,14 @@ Configuring Options
 | Name | Type | Description |
 | --- | --- | --- |
 | attempts | <code>Number</code> | The number of times to try and perform an SSDP search before quitting. (Default 10) |
+| burst | <code>Boolean</code> | Only applies for UDP, but the wifi shield will send 3 of the same packets on UDP to                      increase the chance packets arrive to this module (Default false) |
 | debug | <code>Boolean</code> | Print out a raw dump of bytes sent and received. (Default `false`) |
 | latency | <code>Number</code> | The latency, or amount of time between packet sends, of the WiFi shield. The time is in                      micro seconds! |
+| protocol | <code>String</code> | Either send the data over TCP or UDP. UDP seems better for either a bad router or slow                      router. Default is TCP |
 | sampleRate | <code>Number</code> | The sample rate to set the board to. (Default is zero) |
 | sendCounts | <code>Boolean</code> | Send integer raw counts instead of scaled floats.           (Default `false`) |
 | verbose | <code>Boolean</code> | Print out useful debugging events. (Default `false`) |
 
-
-## <a name="developing"></a> Developing:
-### <a name="developing-running"></a> Running:
-
-```
-npm install
-```
-
-### <a name="developing-testing"></a> Testing:
-
-```
-npm test
-```
-
-## <a name="contribute"></a> Contribute:
-
-1. Fork it!
-2. Branch off of `development`: `git checkout development`
-2. Create your feature branch: `git checkout -b my-new-feature`
-3. Make changes
-4. If adding a feature, please add test coverage.
-5. Ensure tests all pass. (`npm test`)
-6. Commit your changes: `git commit -m 'Add some feature'`
-7. Push to the branch: `git push origin my-new-feature`
-8. Submit a pull request. Make sure it is based off of the `development` branch when submitting! :D
-
-## <a name="license"></a> License:
-
-MIT
 
 [link_aj_keller]: https://github.com/aj-ptw
 [link_shop_wifi_shield]: https://shop.openbci.com/collections/frontpage/products/wifi-shield?variant=44534009550

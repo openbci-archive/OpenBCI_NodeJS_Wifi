@@ -22,6 +22,6 @@ This project is maintained by the [OpenBCI](www.openbci.com) and [NeuroTechX](ww
 
 ## How can I contribute?
 
-This is currently a small, humble project so our contribution process is rather casual. Take a look at our [GitHub Projects board to see](https://github.com/NeuroTechX/eeg-101/projects) to see all the features we are currently working on. If there's a feature you'd be interested in building, go ahead! Let us know on the #interactive-tutorial channel on [the NeuroTechX Slack](http://neurotechx.herokuapp.com/) and we'll support you as much as we can. When you're finished submit a pull request to the master branch referencing the specific issue you addressed.
+This is currently a small, humble project so our contribution process is rather casual. If there's a feature you'd be interested in building, go ahead! Let us know by [opening an issue](../../issues/new) and we'll support you as much as we can. When you're finished submit a pull request to the master branch referencing the specific issue you addressed.
 
 If you find a bug, or have a suggestion on how to improve the project, just fill out a [Github issue](../../issues)

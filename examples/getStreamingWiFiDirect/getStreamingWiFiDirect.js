@@ -9,8 +9,8 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = true; // Pretty print any bytes in and out... it's amazing...
-let verbose = true; // Adds verbosity to functions
+let debug = false; // Pretty print any bytes in and out... it's amazing...
+let verbose = false; // Adds verbosity to functions
 const protocol = 'udp'; // or 'udp'
 
 const k = require('openbci-utilities').Constants;
@@ -20,7 +20,8 @@ let wifi = new Wifi({
   verbose: verbose,
   sendCounts: false,
   latency: 16667,
-  protocol: protocol
+  protocol: protocol,
+  burst: true
 });
 
 let counter = 0;
@@ -32,7 +33,7 @@ let sampleRateArray = [];
 let droppedPackets = 0;
 const sampleFunc = (sample) => {
   try {
-    console.log(JSON.stringify(sample));
+    // console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
@@ -77,9 +78,14 @@ wifi.on(k.OBCIEmitterImpedance, (impedance) => {
 wifi.on(k.OBCIEmitterSample, sampleFunc);
 // wifi.on(k.OBCIEmitterRawDataPacket, console.log);
 
-wifi.searchToStream({
+// wifi.searchToStream({
+//     streamStart: true,
+//     sampleRate: 1000
+//   })
+wifi.connect({
+    sampleRate: 4000,
     streamStart: true,
-    sampleRate: 1000
+    ipAddress: '192.168.4.1'
   })
   .then(() => {
     if (wifi.getNumberOfChannels() === 4) {

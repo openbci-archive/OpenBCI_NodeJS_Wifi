@@ -176,14 +176,14 @@ npm test
 
 1. Checkout [contributors' guidelines](CONTRIBUTING.md)
 2. Fork it!
-3. Branch off of `dev`: `git checkout dev`
+3. Branch off of `development`: `git checkout development`
 4. Create your feature branch: `git checkout -b my-new-feature`
 5. Make changes
 6. If adding a feature, please add test coverage.
 7. Ensure tests all pass. (`npm test`)
 8. Commit your changes: `git commit -m 'Add some feature'`
 9. Push to the branch: `git push origin my-new-feature`
-10. Submit a pull request. Make sure it is based off of the `dev` branch when submitting! :D
+10. Submit a pull request. Make sure it is based off of the `development` branch when submitting! :D
 
 ## <a name="license"></a> License:
 

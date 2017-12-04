@@ -522,7 +522,6 @@ Wifi.prototype.searchToStream = function (o) {
         })
         .catch((err) => {
           reject(err);
-          console.log(err);
         });
     });
     this.searchStart().catch(console.log);
@@ -575,7 +574,7 @@ Wifi.prototype.syncSampleRate = function () {
           this._sampleRate = Number(res.match(numPattern)[0]);
           resolve(this._sampleRate);
         } else {
-          reject(res);
+          reject(Error(`syncSampleRate: MESSAGE:${res.message}`));
         }
       })
       .catch((err) => {
@@ -703,7 +702,7 @@ Wifi.prototype.syncRegisterSettings = function () {
   return new Promise((resolve, reject) => {
     this.write(k.OBCIMiscQueryRegisterSettings)
       .then((res) => {
-        this._rawDataPacketToSample.data = Buffer.from(res);
+        this._rawDataPacketToSample.data = Buffer.from(res.message);
         try {
           obciUtils.syncChannelSettingsWithRawData(this._rawDataPacketToSample);
           resolve(this._rawDataPacketToSample.channelSettings);
@@ -801,9 +800,9 @@ Wifi.prototype.streamStop = function () {
  */
 Wifi.prototype.syncInfo = function (o) {
   return this.get('/board')
-    .then((info) => {
+    .then((res) => {
       try {
-        info = JSON.parse(info);
+        const info = JSON.parse(res.message);
         this._boardConnected = info['board_connected'];
         this._numberOfChannels = info['num_channels'];
         this._boardType = info['board_type'];
@@ -827,14 +826,18 @@ Wifi.prototype.syncInfo = function (o) {
         return Promise.reject(err);
       }
     })
-    .then((allInfo) => {
-      allInfo = JSON.parse(allInfo);
-      this._shieldName = allInfo.name;
-      this._macAddress = allInfo.mac;
-      this._version = allInfo.version;
-      this._latency = allInfo.latency;
-      this._allInfo = allInfo;
-      return Promise.resolve(this._boardInfo);
+    .then((res) => {
+      try {
+        const allInfo = JSON.parse(res.message);
+        this._shieldName = allInfo.name;
+        this._macAddress = allInfo.mac;
+        this._version = allInfo.version;
+        this._latency = allInfo.latency;
+        this._allInfo = allInfo;
+        return Promise.resolve(this._boardInfo);
+      } catch (err) {
+        return Promise.reject(err);
+      }
     })
     .catch((err) => {
       console.log(err);
@@ -861,7 +864,7 @@ Wifi.prototype.write = function (data) {
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
       this.post('/command', {'command': data.toString()})
         .then((res) => {
-          resolve(res);
+          resolve(res.message);
         })
         .catch((err) => {
           reject(err);
@@ -1090,56 +1093,64 @@ Wifi.prototype.wifiInitServer = function () {
 
 /**
  * Used to process a response from either a GET, POST, or DELETE.
- * @param res {String} The response from the server or client
+ * @param res {Object} The response from the server or client
  * @param cb {callback} Callback to know the response and everything is done. Can contain the message.
  * @private
  */
-Wifi.prototype._processResponse = function (res, cb) {
-  if (this.options.verbose) {
-    console.log(`STATUS: ${res.statusCode}`);
-    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  }
-  res.setEncoding('utf8');
-  let msg = '';
-  res.on('data', (chunk) => {
-    if (this.options.verbose) console.log(`BODY: ${chunk}`);
-    msg += chunk.toString();
-  });
-  res.once('end', () => {
-    if (this.options.verbose) console.log('No more data in response.');
-    this.emit('res', msg);
-    if (res.statusCode !== 200) {
-      if (cb) cb(msg);
-    } else {
-      if (cb) cb();
+Wifi.prototype._processResponse = function (res) {
+  return new Promise((resolve, reject) => {
+    if (this.options.verbose) {
+      console.log(`STATUS: ${res.statusCode}`);
+      // console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
     }
-  });
-};
-
-Wifi.prototype._delete = function (host, path, cb) {
-  const options = {
-    host: host,
-    port: 80,
-    path: path,
-    method: 'DELETE'
-  };
-
-  const req = http.request(options, (res) => {
-    this._processResponse(res, (err) => {
-      if (err) {
-        if (cb) cb(err);
+    let processResponseTimeout = setTimeout(() => {
+      reject(Error('Timeout waiting for response'));
+    }, 2000);
+    res.setEncoding('utf8');
+    let msg = '';
+    res.on('data', (chunk) => {
+      msg += chunk.toString();
+    });
+    res.once('end', () => {
+      clearTimeout(processResponseTimeout);
+      if (this.options.verbose) console.log('No more data in response.');
+      res['msg'] = msg;
+      if (this.options.verbose) console.log(`BODY: ${msg}`);
+      if (res.statusCode !== 200) {
+        reject(Error(`ERROR: CODE: ${res.statusCode} MESSAGE: ${res.msg}`));
       } else {
-        if (cb) cb();
+        resolve({
+          message: res.msg,
+          code: res.statusCode
+        });
       }
     });
   });
 
-  req.once('error', (e) => {
-    if (this.options.verbose) console.log(`DELETE problem with request: ${e.message}`);
-    if (cb) cb(e);
-  });
+};
 
-  req.end();
+Wifi.prototype._delete = function (host, path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      host: host,
+      port: 80,
+      path: path,
+      method: 'DELETE'
+    };
+
+    const req = http.request(options, (res) => {
+      this._processResponse(res)
+        .then(resolve)
+        .catch(reject);
+    });
+
+    req.once('error', (e) => {
+      if (this.options.verbose) console.log(`DELETE problem with request: ${e.message}`);
+      reject(e);
+    });
+
+    req.end();
+  });
 };
 
 /**
@@ -1148,47 +1159,32 @@ Wifi.prototype._delete = function (host, path, cb) {
  * @returns {Promise} - Resolves if gets a response from the client/server, rejects with error
  */
 Wifi.prototype.delete = function (path) {
-  return new Promise((resolve, reject) => {
-    const resFunc = (res) => {
-      resolve(res);
-    };
-    this.once('res', resFunc);
-    if (this.options.verbose) console.log(`-> DELETE: ${this._ipAddress}${path}`);
-    this._delete(this._ipAddress, path, (err) => {
-      if (err) {
-        if (this.options.verbose) {
-          this.removeListener('res', resFunc);
-          reject(err);
-        }
-      }
-    })
-  });
+  if (this.options.verbose) console.log(`-> DELETE: ${this._ipAddress}${path}`);
+  return this._delete(this._ipAddress, path);
 };
 
-Wifi.prototype._get = function (host, path, cb) {
-  const options = {
-    host: host,
-    port: 80,
-    path: path,
-    method: 'GET'
-  };
+Wifi.prototype._get = function (host, path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      host: host,
+      port: 80,
+      path: path,
+      method: 'GET'
+    };
 
-  const req = http.request(options, (res) => {
-    this._processResponse(res, (err) => {
-      if (err) {
-        if (cb) cb(err);
-      } else {
-        if (cb) cb();
-      }
+    const req = http.request(options, (res) => {
+      this._processResponse(res)
+        .then(resolve)
+        .catch(reject);
     });
-  });
 
-  req.once('error', (e) => {
-    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
-    if (cb) cb(e);
-  });
+    req.once('error', (e) => {
+      if (this.options.verbose) console.log(`GET problem with request: ${e.message}`);
+      reject(e);
+    });
 
-  req.end();
+    req.end();
+  })
 };
 
 /**
@@ -1197,54 +1193,39 @@ Wifi.prototype._get = function (host, path, cb) {
  * @returns {Promise} - Resolves if gets/with a response from the client/server, rejects with error
  */
 Wifi.prototype.get = function (path) {
-  return new Promise((resolve, reject) => {
-    const resFunc = (res) => {
-      resolve(res);
-    };
-    this.once('res', resFunc);
-    if (this.options.verbose) console.log(`-> GET: ${this._ipAddress}${path}`);
-    this._get(this._ipAddress, path, (err) => {
-      if (err) {
-        if (this.options.verbose) {
-          this.removeListener('res', resFunc);
-          reject(err);
-        }
-      }
-    })
-  });
+  if (this.options.verbose) console.log(`-> GET: ${this._ipAddress}${path}`);
+  return this._get(this._ipAddress, path);
 };
 
-Wifi.prototype._post = function (host, path, payload, cb) {
-  const output = JSON.stringify(payload);
-  const options = {
-    host: host,
-    port: 80,
-    path: path,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': output.length
-    }
-  };
-
-  const req = http.request(options, (res) => {
-    this._processResponse(res, (err) => {
-      if (err) {
-        if (cb) cb.call(this, err);
-      } else {
-        if (cb) cb.call(this);
+Wifi.prototype._post = function (host, path, payload) {
+  return new Promise((resolve, reject) => {
+    const output = JSON.stringify(payload);
+    const options = {
+      host: host,
+      port: 80,
+      path: path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': output.length
       }
+    };
+
+    const req = http.request(options, (res) => {
+      this._processResponse(res)
+        .then(resolve)
+        .catch(reject);
     });
-  });
 
-  req.once('error', (e) => {
-    if (this.options.verbose) console.log(`problem with request: ${e.message}`);
-    if (cb) cb.call(this, e);
-  });
+    req.once('error', (e) => {
+      if (this.options.verbose) console.log(`problem with request: ${e.message}`);
+      reject(e);
+    });
 
-  // write data to request body
-  req.write(output);
-  req.end();
+    // write data to request body
+    req.write(output);
+    req.end();
+  });
 };
 
 /**
@@ -1254,21 +1235,8 @@ Wifi.prototype._post = function (host, path, payload, cb) {
  * @returns {Promise} - Resolves if gets a response from the client/server, rejects with error
  */
 Wifi.prototype.post = function (path, payload) {
-  return new Promise((resolve, reject) => {
-    const resFunc = (res) => {
-      resolve(res);
-    };
-    this.once('res', resFunc);
-    if (this.options.verbose) console.log(`-> POST: ${this._ipAddress}${path} ${JSON.stringify(payload)}`);
-    this._post(this._ipAddress, path, payload, (err) => {
-      if (err) {
-        if (this.options.verbose) {
-          this.removeListener('res', resFunc);
-          reject(err);
-        }
-      }
-    })
-  });
+  if (this.options.verbose) console.log(`-> POST: ${this._ipAddress}${path} ${JSON.stringify(payload)}`);
+  return this._post(this._ipAddress, path, payload);
 };
 
 module.exports = Wifi;

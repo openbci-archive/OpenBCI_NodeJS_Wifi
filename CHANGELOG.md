@@ -1,3 +1,9 @@
+# v0.4.1
+
+### Bug Fixes
+
+* DELETE, GET, and POST would resolve even if code was not equal to 200
+
 # v0.4.0
 
 ### New Features

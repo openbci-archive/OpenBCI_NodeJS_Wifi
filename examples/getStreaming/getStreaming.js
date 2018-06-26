@@ -13,8 +13,8 @@ const OBCIConsts = require("openbci-utilities").Constants;
 const OBCIWifi = require("../../openBCIWifi");
 
 const wifi = new OBCIWifi({
-  debug: false,               // Pretty print any bytes in and out... it"s amazing...
-  verbose: true,              // Adds verbosity to functions
+  debug: false,               // Pretty print bytes
+  verbose: true,              // Verbose output
   sendCounts: false,
   latency: 16667,
   protocol: "tcp"             // or "udp"
@@ -70,6 +70,7 @@ const sampleFunc = (sample) => {
 wifi.on(OBCIConsts.OBCIEmitterImpedance, (impedance) => {
   console.log(JSON.stringify(impedance));
 });
+
 wifi.on(OBCIConsts.OBCIEmitterSample, sampleFunc);
 // wifi.on(OBCIConsts.OBCIEmitterRawDataPacket, console.log);
 
@@ -135,17 +136,17 @@ if (process.platform === "win32") {
   });
 }
 
-// do something when app is closing
+// Perform actions on exit
 process.on("exit", exitHandler.bind(null, {
   cleanup: true
 }));
 
-// catches ctrl+c event
+// Perform actions on SIGINT
 process.on("SIGINT", exitHandler.bind(null, {
   exit: true
 }));
 
-// catches uncaught exceptions
+// Perform actions on uncaught exceptions
 process.on("uncaughtException", exitHandler.bind(null, {
   exit: true
 }));

@@ -9,18 +9,15 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = false; // Pretty print any bytes in and out... it's amazing...
-let verbose = false; // Adds verbosity to functions
-const protocol = 'udp'; // or 'udp'
+const OpenBCIConsts = require("openbci-utilities").Constants;
+const OpenBCIWifi = require("../../openBCIWifi");
 
-const k = require('openbci-utilities').Constants;
-let Wifi = require('../../openBCIWifi');
-let wifi = new Wifi({
-  debug: debug,
-  verbose: verbose,
+const wifi = new OpenBCIWifi({
+  debug: false,                   // Pretty print bytes
+  verbose: false,                 // Verbose output
   sendCounts: false,
   latency: 16667,
-  protocol: protocol,
+  protocol: "udp",                // or "tcp"
   burst: true
 });
 
@@ -31,6 +28,9 @@ let MAX_SAMPLE_NUMBER = 255;
 let droppedPacketArray = [];
 let sampleRateArray = [];
 let droppedPackets = 0;
+
+const sum = (acc, cur) => acc + cur;
+
 const sampleFunc = (sample) => {
   try {
     // console.log(JSON.stringify(sample));
@@ -72,20 +72,20 @@ const sampleFunc = (sample) => {
   }
 };
 
-wifi.on(k.OBCIEmitterImpedance, (impedance) => {
+wifi.on(OpenBCIConsts.OBCIEmitterImpedance, (impedance) => {
   console.log(JSON.stringify(impedance));
 });
-wifi.on(k.OBCIEmitterSample, sampleFunc);
-// wifi.on(k.OBCIEmitterRawDataPacket, console.log);
+wifi.on(OpenBCIConsts.OBCIEmitterSample, sampleFunc);
+// wifi.on(OpenBCIConsts.OBCIEmitterRawDataPacket, console.log);
 
 // wifi.searchToStream({
 //     streamStart: true,
 //     sampleRate: 1000
 //   })
 wifi.connect({
-    sampleRate: 4000,
+    sampleRate: 200,
     streamStart: true,
-    ipAddress: '192.168.4.1'
+    ipAddress: '192.168.0.142'
   })
   .then(() => {
     if (wifi.getNumberOfChannels() === 4) {

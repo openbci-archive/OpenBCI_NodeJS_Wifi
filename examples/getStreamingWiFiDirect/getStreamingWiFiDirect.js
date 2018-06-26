@@ -12,6 +12,8 @@
 const OpenBCIConsts = require("openbci-utilities").Constants;
 const OpenBCIWifi = require("../../openBCIWifi");
 
+const deviceAddr = "192.168.0.142";
+
 const wifi = new OpenBCIWifi({
   debug: false,                   // Pretty print bytes
   verbose: false,                 // Verbose output
@@ -38,32 +40,33 @@ const sampleFunc = (sample) => {
       counter++;
       if (sampleRateCounterInterval === null) {
         sampleRateCounterInterval = setInterval(() => {
+          droppedPacketArray.push(droppedPackets);
+          sampleRateArray.push(counter);
+
+
+          const dpSum = droppedPacketArray.reduce(sum, 0);
+          const srSum = sampleRateArray.reduce(sum, 0);
+
           console.log(`\nSR: ${counter}`);
           console.log(`Dropped ${droppedPackets} packets`);
-          droppedPacketArray.push(droppedPackets);
-          let sum = 0;
-          droppedPacketArray.map((droppedPacketCnt) => {
-            sum += droppedPacketCnt;
-          });
-          console.log(`Dropped packet average: ${sum / droppedPacketArray.length}`);
+          console.log(`Dropped packet average: ${dpSum / droppedPacketArray.length}`);
+          console.log(`Sample rate average: ${srSum / sampleRateArray.length}`);
 
-          sampleRateArray.push(counter);
-          sum = 0;
-          sampleRateArray.map((counter) => {
-            sum += counter;
-          });
           droppedPackets = 0;
           counter = 0;
 
         }, 1000);
       }
 
-      let packetDiff = sample.sampleNumber - lastSampleNumber;
+      const packetDiff = sample.sampleNumber - lastSampleNumber;
+
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
+
       if (packetDiff > 1) {
         console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
         droppedPackets += packetDiff;
       }
+
       lastSampleNumber = sample.sampleNumber;
       // console.log(JSON.stringify(sample));
     }
@@ -75,24 +78,17 @@ const sampleFunc = (sample) => {
 wifi.on(OpenBCIConsts.OBCIEmitterImpedance, (impedance) => {
   console.log(JSON.stringify(impedance));
 });
+
 wifi.on(OpenBCIConsts.OBCIEmitterSample, sampleFunc);
 // wifi.on(OpenBCIConsts.OBCIEmitterRawDataPacket, console.log);
 
-// wifi.searchToStream({
-//     streamStart: true,
-//     sampleRate: 1000
-//   })
 wifi.connect({
     sampleRate: 200,
     streamStart: true,
-    ipAddress: '192.168.0.142'
+    ipAddress: deviceAddr
   })
   .then(() => {
-    if (wifi.getNumberOfChannels() === 4) {
-      MAX_SAMPLE_NUMBER = 200;
-    } else {
-      MAX_SAMPLE_NUMBER = 255;
-    }
+    MAX_SAMPLE_NUMBER = wifi.getNumberOfChannels() === 4 ? 200 : 255;
   })
   .catch((err) => {
     console.log(err);
@@ -101,28 +97,32 @@ wifi.connect({
 
 function exitHandler (options, err) {
   if (options.cleanup) {
-    if (verbose) console.log('clean');
+    if (verbose) console.log("clean");
     /** Do additional clean up here */
     if (wifi.isConnected()) wifi.disconnect().catch(console.log);
-    wifi.removeAllListeners('rawDataPacket');
-    wifi.removeAllListeners('sample');
+
+    wifi.removeAllListeners("rawDataPacket");
+    wifi.removeAllListeners("sample");
     wifi.destroy();
-    if (sampleRateCounterInterval) {
-      clearInterval(sampleRateCounterInterval);
-    }
+    
+    if (sampleRateCounterInterval) clearInterval(sampleRateCounterInterval);
   }
+
   if (err) console.log(err.stack);
+  
   if (options.exit) {
-    if (verbose) console.log('exit');
+    if (verbose) console.log("exit");
+
     if (wifi.isStreaming()) {
-      let timmy = setTimeout(() => {
+      const _t = setTimeout(() => {
         console.log("timeout");
         process.exit(0);
       }, 1000);
+      
       wifi.streamStop()
         .then(() => {
-          console.log('stream stopped');
-          if (timmy) clearTimeout(timmy);
+          console.log("stream stopped");
+          if (_t) clearTimeout(_t);
           process.exit(0);
         }).catch((err) => {
           console.log(err);
@@ -146,16 +146,16 @@ if (process.platform === "win32") {
 }
 
 // do something when app is closing
-process.on('exit', exitHandler.bind(null, {
+process.on("exit", exitHandler.bind(null, {
   cleanup: true
 }));
 
 // catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {
+process.on("SIGINT", exitHandler.bind(null, {
   exit: true
 }));
 
 // catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, {
+process.on("uncaughtException", exitHandler.bind(null, {
   exit: true
 }));

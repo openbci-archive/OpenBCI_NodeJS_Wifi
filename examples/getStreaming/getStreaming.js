@@ -54,11 +54,14 @@ const sampleFunc = (sample) => {
       }
 
       const packetDiff = sample.sampleNumber - lastSampleNumber;
+
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
+
       if (packetDiff > 1) {
         console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
         droppedPackets += packetDiff;
       }
+      
       lastSampleNumber = sample.sampleNumber;
       // console.log(JSON.stringify(sample));
     }

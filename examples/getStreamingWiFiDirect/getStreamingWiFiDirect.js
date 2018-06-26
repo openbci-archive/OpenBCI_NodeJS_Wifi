@@ -1,3 +1,4 @@
+/*jslint es6*/
 /**
  * This is an example from the readme.md
  * On windows you should run with PowerShell not git bash.
@@ -9,17 +10,18 @@
  *   do `npm install`
  *   then `npm start`
  */
+"use strict";
 const OpenBCIConsts = require("openbci-utilities").Constants;
 const OpenBCIWifi = require("../../openBCIWifi");
 
-const deviceAddr = "192.168.0.142";
+const deviceAddr = "10.0.1.3";
 
 const wifi = new OpenBCIWifi({
   debug: false,                   // Pretty print bytes
   verbose: false,                 // Verbose output
   sendCounts: false,
   latency: 16667,
-  protocol: "udp",                // or "tcp"
+  protocol: "tcp",                // or "udp"
   burst: true
 });
 
@@ -47,7 +49,7 @@ const sampleFunc = (sample) => {
           const dpSum = droppedPacketArray.reduce(sum, 0);
           const srSum = sampleRateArray.reduce(sum, 0);
 
-          console.log(`\nSR: ${counter}`);
+          console.log(`SR: ${counter}`);
           console.log(`Dropped ${droppedPackets} packets`);
           console.log(`Dropped packet average: ${dpSum / droppedPacketArray.length}`);
           console.log(`Sample rate average: ${srSum / sampleRateArray.length}`);
@@ -58,7 +60,7 @@ const sampleFunc = (sample) => {
         }, 1000);
       }
 
-      const packetDiff = sample.sampleNumber - lastSampleNumber;
+      let packetDiff = sample.sampleNumber - lastSampleNumber;
 
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
 
@@ -97,7 +99,7 @@ wifi.connect({
 
 function exitHandler (options, err) {
   if (options.cleanup) {
-    if (verbose) console.log("clean");
+    if (options.verbose) console.log("clean");
     /** Do additional clean up here */
     if (wifi.isConnected()) wifi.disconnect().catch(console.log);
 
@@ -111,14 +113,14 @@ function exitHandler (options, err) {
   if (err) console.log(err.stack);
   
   if (options.exit) {
-    if (verbose) console.log("exit");
+    if (options.verbose) console.log("exit");
 
     if (wifi.isStreaming()) {
       const _t = setTimeout(() => {
         console.log("timeout");
         process.exit(0);
       }, 1000);
-      
+
       wifi.streamStop()
         .then(() => {
           console.log("stream stopped");

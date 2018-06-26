@@ -19,11 +19,13 @@
   "dependencies": {
     "buffer-equal": "^1.0.0",
     "clone": "^2.0.0",
+    "fs": "0.0.1-security",
     "ip": "^1.1.5",
     "lodash": "^4.16.6",
     "node-ssdp": "^3.2.1",
     "openbci-utilities": "^0.2.7",
-    "safe-buffer": "^5.1.1"
+    "safe-buffer": "^5.1.1",
+    "xstream": "^11.7.0"
   },
   "directories": {
     "test": "test"

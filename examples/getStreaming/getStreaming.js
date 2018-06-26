@@ -1,3 +1,4 @@
+/*jslint es6*/
 /**
  * This is an example from the readme.md
  * On windows you should run with PowerShell not git bash.
@@ -9,6 +10,7 @@
  *   do `npm install`
  *   then `npm start`
  */
+"use strict";
 const OBCIConsts = require("openbci-utilities").Constants;
 const OBCIWifi = require("../../openBCIWifi");
 
@@ -32,7 +34,7 @@ const sum = (acc, cur) => acc + cur;
 
 const sampleFunc = (sample) => {
   try {
-    console.log(JSON.stringify(sample));
+    // console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
@@ -43,7 +45,7 @@ const sampleFunc = (sample) => {
           const dpSum = droppedPacketArray.reduce(sum, 0);
           const srSum = sampleRateArray.reduce(sum, 0);
 
-          console.log(`\nSR: ${counter}`);
+          console.log(`SR: ${counter}`);
           console.log(`Dropped ${droppedPackets} packets`);
           console.log(`Dropped packet average: ${dpSum / droppedPacketArray.length}`);
           console.log(`Sample rate average: ${srSum / sampleRateArray.length}`);
@@ -53,7 +55,7 @@ const sampleFunc = (sample) => {
         }, 1000);
       }
 
-      const packetDiff = sample.sampleNumber - lastSampleNumber;
+      let packetDiff = sample.sampleNumber - lastSampleNumber;
 
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
 
@@ -79,7 +81,7 @@ wifi.on(OBCIConsts.OBCIEmitterSample, sampleFunc);
 
 wifi.searchToStream({
     streamStart: true,
-    sampleRate: 1000
+    sampleRate: 200
   })
   .then(() => {
     MAX_SAMPLE_NUMBER = wifi.getNumberOfChannels() === 4 ? 200 : 255;

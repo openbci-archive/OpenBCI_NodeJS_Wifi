@@ -1,3 +1,18 @@
+# v0.4.2
+
+### Examples
+
+1. Refactored examples `getStreaming.js` and `getStreamingWiFiDirect.js`
+   - Removed dead code
+   - Renamed variables
+   - Variables properly classed into `const` and `let`
+   - Improved readability
+   - Eliminated functional redundancies
+2. Added example `xstreamCSV.js`
+   - Direct WiFi
+   - Pipes data from OpenBCI hardware into an [XStream](https://github.com/staltz/xstream) producer
+   - Outputs to console, CSV (via WriteStream) using listeners
+
 # v0.4.1
 
 ### Bug Fixes

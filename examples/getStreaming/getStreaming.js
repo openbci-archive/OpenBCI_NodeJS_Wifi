@@ -1,3 +1,4 @@
+/*jslint es6*/
 /**
  * This is an example from the readme.md
  * On windows you should run with PowerShell not git bash.
@@ -9,18 +10,16 @@
  *   do `npm install`
  *   then `npm start`
  */
-let debug = false; // Pretty print any bytes in and out... it's amazing...
-let verbose = true; // Adds verbosity to functions
-const protocol = 'tcp'; // or 'udp'
+"use strict";
+const OBCIConsts = require("openbci-utilities").Constants;
+const OBCIWifi = require("../../openBCIWifi");
 
-const k = require('openbci-utilities').Constants;
-let Wifi = require('../../openBCIWifi');
-let wifi = new Wifi({
-  debug: debug,
-  verbose: verbose,
+const wifi = new OBCIWifi({
+  debug: false,               // Pretty print bytes
+  verbose: true,              // Verbose output
   sendCounts: false,
   latency: 16667,
-  protocol: protocol
+  protocol: "tcp"             // or "udp"
 });
 
 let counter = 0;
@@ -30,96 +29,99 @@ let MAX_SAMPLE_NUMBER = 255;
 let droppedPacketArray = [];
 let sampleRateArray = [];
 let droppedPackets = 0;
+
+const sum = (acc, cur) => acc + cur;
+
 const sampleFunc = (sample) => {
   try {
-    console.log(JSON.stringify(sample));
+    // console.log(JSON.stringify(sample));
     if (sample.valid) {
       counter++;
       if (sampleRateCounterInterval === null) {
         sampleRateCounterInterval = setInterval(() => {
-          console.log(`\nSR: ${counter}`);
-          console.log(`Dropped ${droppedPackets} packets`);
           droppedPacketArray.push(droppedPackets);
-          let sum = 0;
-          droppedPacketArray.map((droppedPacketCnt) => {
-            sum += droppedPacketCnt;
-          });
-          console.log(`Dropped packet average: ${sum / droppedPacketArray.length}`);
-
           sampleRateArray.push(counter);
-          sum = 0;
-          sampleRateArray.map((counter) => {
-            sum += counter;
-          });
+
+          const dpSum = droppedPacketArray.reduce(sum, 0);
+          const srSum = sampleRateArray.reduce(sum, 0);
+
+          console.log(`SR: ${counter}`);
+          console.log(`Dropped ${droppedPackets} packets`);
+          console.log(`Dropped packet average: ${dpSum / droppedPacketArray.length}`);
+          console.log(`Sample rate average: ${srSum / sampleRateArray.length}`);
+          
           droppedPackets = 0;
           counter = 0;
-
         }, 1000);
       }
 
       let packetDiff = sample.sampleNumber - lastSampleNumber;
+
       if (packetDiff < 0) packetDiff += MAX_SAMPLE_NUMBER;
+
       if (packetDiff > 1) {
         console.log(`dropped ${packetDiff} packets | cur sn: ${sample.sampleNumber} | last sn: ${lastSampleNumber}`);
         droppedPackets += packetDiff;
       }
+      
       lastSampleNumber = sample.sampleNumber;
       // console.log(JSON.stringify(sample));
     }
   } catch (err) {
-    console.log(err);
+    console.error(err);
   }
 };
 
-wifi.on(k.OBCIEmitterImpedance, (impedance) => {
+wifi.on(OBCIConsts.OBCIEmitterImpedance, (impedance) => {
   console.log(JSON.stringify(impedance));
 });
-wifi.on(k.OBCIEmitterSample, sampleFunc);
-// wifi.on(k.OBCIEmitterRawDataPacket, console.log);
+
+wifi.on(OBCIConsts.OBCIEmitterSample, sampleFunc);
+// wifi.on(OBCIConsts.OBCIEmitterRawDataPacket, console.log);
 
 wifi.searchToStream({
     streamStart: true,
-    sampleRate: 1000
+    sampleRate: 200
   })
   .then(() => {
-    if (wifi.getNumberOfChannels() === 4) {
-      MAX_SAMPLE_NUMBER = 200;
-    } else {
-      MAX_SAMPLE_NUMBER = 255;
-    }
+    MAX_SAMPLE_NUMBER = wifi.getNumberOfChannels() === 4 ? 200 : 255;
   })
   .catch((err) => {
-    console.log(err);
+    console.error(err);
     process.exit(0);
   });
 
 function exitHandler (options, err) {
   if (options.cleanup) {
-    if (verbose) console.log('clean');
+    if (options.verbose) console.log("clean");
     /** Do additional clean up here */
     if (wifi.isConnected()) wifi.disconnect().catch(console.log);
-    wifi.removeAllListeners('rawDataPacket');
-    wifi.removeAllListeners('sample');
+    
+    wifi.removeAllListeners("rawDataPacket");
+    wifi.removeAllListeners("sample");
     wifi.destroy();
-    if (sampleRateCounterInterval) {
-      clearInterval(sampleRateCounterInterval);
-    }
+
+    if (sampleRateCounterInterval) clearInterval(sampleRateCounterInterval);
   }
-  if (err) console.log(err.stack);
+  
+  if (err) console.error(err.stack);
+  
   if (options.exit) {
-    if (verbose) console.log('exit');
+    if (options.verbose) console.log("exit");
+
     if (wifi.isStreaming()) {
-      let timmy = setTimeout(() => {
+      const _t = setTimeout(() => {
         console.log("timeout");
         process.exit(0);
       }, 1000);
+
       wifi.streamStop()
         .then(() => {
-          console.log('stream stopped');
-          if (timmy) clearTimeout(timmy);
+          console.log("stream stopped");
+          if (_t) clearTimeout(_t);
           process.exit(0);
         }).catch((err) => {
-          console.log(err);
+          console.error(err);
           process.exit(0);
         });
     } else {
@@ -139,17 +141,17 @@ if (process.platform === "win32") {
   });
 }
 
-// do something when app is closing
-process.on('exit', exitHandler.bind(null, {
+// Perform actions on exit
+process.on("exit", exitHandler.bind(null, {
   cleanup: true
 }));
 
-// catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {
+// Perform actions on SIGINT
+process.on("SIGINT", exitHandler.bind(null, {
   exit: true
 }));
 
-// catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, {
+// Perform actions on uncaught exceptions
+process.on("uncaughtException", exitHandler.bind(null, {
   exit: true
 }));

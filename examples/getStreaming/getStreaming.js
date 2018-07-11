@@ -6,7 +6,7 @@
  *   [nodejs](https://nodejs.org/en/)
  *
  * To run:
- *   change directory to this file `cd examples/debug`
+ *   change directory to this file `cd examples/getStreaming`
  *   do `npm install`
  *   then `npm start`
  */

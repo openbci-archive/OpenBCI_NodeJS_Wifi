@@ -60,7 +60,7 @@ Using WiFi physically solves limitations with the current state-of-the-art open 
 
 ## Who are we?
 
-The founder of the OpenBCI WiFi Shield NodeJS SDK is [AJ Keller][link_aj_keller]. There's more information about him (and some pictures) in the [MeetTheTeam](MeetTheTeam.md) file.
+The founder of the OpenBCI WiFi Shield NodeJS SDK is [AJ Keller][link_aj_keller].
 
 <a href="https://www.mozillascience.org/about">
   <img
@@ -127,6 +127,11 @@ Thank you so much (Danke schön! Merci beaucoup!) for visiting the project and w
 9. [Wifi](#wifi)
 
 ## <a name="install"></a> Installation:
+
+We assume you have NodeJS installed already, if you don't please [download the latest stable version from NodeJS](https://nodejs.org/en/download/).
+
+Then simply using the node package manager command line tool, enter:
+
 ```
 npm install openbci-wifi
 ```

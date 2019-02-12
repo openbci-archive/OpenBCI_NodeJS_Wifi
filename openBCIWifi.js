@@ -5,7 +5,7 @@ const util = require('util');
 // Local imports
 const OpenBCIUtilities = require('@openbci/utilities');
 const obciUtils = OpenBCIUtilities.Utilities;
-const k = OpenBCIUtilities.Constants;
+const k = OpenBCIUtilities.constants;
 const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
 const ip = require('ip');

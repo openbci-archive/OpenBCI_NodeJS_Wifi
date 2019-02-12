@@ -219,7 +219,7 @@ const wifi = new Wifi({
 or if you are using ES6:
 ```js
 import Wifi from '../../openBCIWifi';
-import { Constants } from '@openbci/utilities';
+import { constants } from '@openbci/utilities';
 const wifi = new Wifi();
 wifi.connect("OpenBCI-2114");
 ```

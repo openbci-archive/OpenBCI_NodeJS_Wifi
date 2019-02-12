@@ -11,7 +11,7 @@
  *   then `npm start`
  */
 "use strict";
-const OpenBCIConsts = require("@openbci/utilities").Constants;
+const OpenBCIConsts = require("@openbci/utilities").constants;
 const OpenBCIWifi = require("../../openBCIWifi");
 
 const deviceAddr = "10.0.1.3";

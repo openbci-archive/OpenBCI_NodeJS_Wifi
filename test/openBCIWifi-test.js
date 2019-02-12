@@ -5,7 +5,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const should = chai.should(); // eslint-disable-line no-unused-vars
 const Wifi = require('../openBCIWifi');
-const OpenBCIUtilities = require('openbci-utilities');
+const OpenBCIUtilities = require('@openbci/utilities');
 const openBCIUtilities = OpenBCIUtilities.Utilities;
 const k = OpenBCIUtilities.Constants;
 const chaiAsPromised = require('chai-as-promised');
@@ -20,7 +20,7 @@ chai.use(chaiAsPromised);
 chai.use(sinonChai);
 chai.use(dirtyChai);
 
-describe('openbci-wifi', function () {
+describe('@openbci/wifi', function () {
   /**
   * Test the function that parses an incoming data buffer for packets
   */

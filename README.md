@@ -9,7 +9,7 @@
 
 [![codecov](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi/branch/master/graph/badge.svg)](https://codecov.io/gh/OpenBCI/OpenBCI_NodeJS_Wifi)
 [![Dependency Status](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi.svg)](https://david-dm.org/OpenBCI/OpenBCI_NodeJS_Wifi)
-[![npm](https://img.shields.io/npm/dm/openbci-wifi.svg?maxAge=2592000)](http://npmjs.com/package/openbci-wifi)
+[![npm](https://img.shields.io/npm/dm/@openbci/wifi.svg?maxAge=2592000)](http://npmjs.com/package/@openbci/wifi)
 [![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat-square)](https://github.com/Flet/semistandard)
 
 ## Welcome!
@@ -133,14 +133,14 @@ We assume you have NodeJS installed already, if you don't please [download the l
 Then simply using the node package manager command line tool, enter:
 
 ```
-npm install openbci-wifi
+npm install @openbci/wifi
 ```
 
 ## <a name="tldr"></a> TL;DR:
 Get connected and [start streaming right now with the example code](examples/getStreaming/getStreaming.js).
 
 ```ecmascript 6
-const Wifi = require('openbci-wifi');
+const Wifi = require('@openbci/wifi');
 let wifi = new Wifi({
   debug: false,
   verbose: true,
@@ -202,7 +202,7 @@ Initialization
 Initializing the board:
 
 ```js
-const Wifi = require('openbci-wifi');
+const Wifi = require('../../openBCIWifi');
 const ourBoard = new Wifi();
 ```
 Go [checkout out the get streaming example](examples/getStreaming/getStreaming.js)!
@@ -210,7 +210,7 @@ Go [checkout out the get streaming example](examples/getStreaming/getStreaming.j
 For initializing with options, such as verbose print outs:
 
 ```js
-const Wifi = require('openbci-wifi');
+const Wifi = require('../../openBCIWifi');
 const wifi = new Wifi({
   verbose: true
 });
@@ -218,15 +218,15 @@ const wifi = new Wifi({
 
 or if you are using ES6:
 ```js
-import Wifi from 'openbci-wifi';
-import { Constants } from 'openbci-utilities';
+import Wifi from '../../openBCIWifi';
+import { Constants } from '@openbci/utilities';
 const wifi = new Wifi();
 wifi.connect("OpenBCI-2114");
 ```
 
 To debug, it's amazing, do:
 ```js
-const Wifi = require('openbci-wifi');
+const Wifi = require('../../openBCIWifi');
 const wifi = new Wifi({
     debug: true
 });
@@ -252,7 +252,7 @@ To get a 'sample' event, you need to:
 1. Install the 'sample' event emitter
 2. Call [`.searchToStream(_options_)`](#Wifi-connect)
 ```js
-const Wifi = require('openbci-wifi');
+const Wifi = require('../../openBCIWifi');
 let wifi = new Wifi({
   debug: false,
   verbose: true,
@@ -278,7 +278,7 @@ wifi.searchToStream({
 ```
 Close the connection with [`.streamStop()`](#Wifi+streamStop) and disconnect with [`.disconnect()`](#Wifi+disconnect)
 ```js
-const Wifi = require('openbci-wifi');
+const Wifi = require('../../openBCIWifi');
 const wifi = new Wifi();
 wifi.streamStop().then(wifi.disconnect());
 ```

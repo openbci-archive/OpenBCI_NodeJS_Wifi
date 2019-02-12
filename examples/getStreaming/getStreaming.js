@@ -11,7 +11,7 @@
  *   then `npm start`
  */
 "use strict";
-const OBCIConsts = require("openbci-utilities").Constants;
+const OBCIConsts = require("@openbci/utilities").Constants;
 const OBCIWifi = require("../../openBCIWifi");
 
 const wifi = new OBCIWifi({

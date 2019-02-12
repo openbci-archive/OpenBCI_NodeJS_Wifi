@@ -3,7 +3,7 @@ const EventEmitter = require('events').EventEmitter;
 const _ = require('lodash');
 const util = require('util');
 // Local imports
-const OpenBCIUtilities = require('openbci-utilities');
+const OpenBCIUtilities = require('@openbci/utilities');
 const obciUtils = OpenBCIUtilities.Utilities;
 const k = OpenBCIUtilities.Constants;
 const obciDebug = OpenBCIUtilities.Debug;

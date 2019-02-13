@@ -1,26 +1,18 @@
 'use strict';
-const bluebirdChecks = require('./bluebirdChecks');
-const sinon = require('sinon');
 const chai = require('chai');
 const expect = chai.expect;
-const should = chai.should(); // eslint-disable-line no-unused-vars
 const Wifi = require('../openBCIWifi');
-const OpenBCIUtilities = require('openbci-utilities');
-const openBCIUtilities = OpenBCIUtilities.Utilities;
-const k = OpenBCIUtilities.Constants;
+const OpenBCIUtilities = require('@openbci/utilities');
+const openBCIUtilities = OpenBCIUtilities.utilities;
 const chaiAsPromised = require('chai-as-promised');
 const sinonChai = require('sinon-chai');
-const bufferEqual = require('buffer-equal');
-const fs = require('fs');
-const math = require('mathjs');
 const dirtyChai = require('dirty-chai');
-const Buffer = require('safe-buffer').Buffer;
 
 chai.use(chaiAsPromised);
 chai.use(sinonChai);
 chai.use(dirtyChai);
 
-describe('openbci-wifi', function () {
+describe('@openbci/wifi', function () {
   /**
   * Test the function that parses an incoming data buffer for packets
   */

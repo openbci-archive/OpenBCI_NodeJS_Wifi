@@ -1,3 +1,13 @@
+# v1.0.0
+
+### Breaking Changes
+
+Name of package is now @openbci/wifi
+
+### Enhancements
+
+Include node 10 in testing
+
 # v0.4.2
 
 ### Examples

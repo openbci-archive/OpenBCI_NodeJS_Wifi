@@ -175,7 +175,7 @@ Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
     _.forEach(rawDataPackets, (newRDP) => {
       let found = false;
       _.forEach(this.internalRawDataPackets, (oldRDP) => {
-        if (!found && bufferEqual(newRDP, oldRDP)) {
+        if (!found && bufferEqual(new Buffer(newRDP), new Buffer(oldRDP))) {
           out.push(oldRDP);
           found = true;
         }

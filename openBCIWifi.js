@@ -4,9 +4,9 @@ const _ = require('lodash');
 const util = require('util');
 // Local imports
 const OpenBCIUtilities = require('@openbci/utilities');
-const obciUtils = OpenBCIUtilities.Utilities;
+const obciUtils = OpenBCIUtilities.utilities;
 const k = OpenBCIUtilities.constants;
-const obciDebug = OpenBCIUtilities.Debug;
+const obciDebug = OpenBCIUtilities.debug;
 const clone = require('clone');
 const ip = require('ip');
 const Client = require('node-ssdp').Client;

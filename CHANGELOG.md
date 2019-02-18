@@ -1,3 +1,9 @@
+# v1.0.1
+
+### Bug Fixes
+
+Updated references to .Debug and .Utilities to .debug and .utilities
+
 # v1.0.0
 
 ### Breaking Changes

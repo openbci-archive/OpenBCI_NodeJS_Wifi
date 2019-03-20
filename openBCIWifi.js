@@ -16,6 +16,7 @@ const http = require('http');
 const bufferEqual = require('buffer-equal');
 const Buffer = require('safe-buffer').Buffer;
 const dgram = require('dgram');
+const isWin = process.platform === "win32";
 
 const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
@@ -411,6 +412,25 @@ Wifi.prototype.getBoardType = function () {
  */
 Wifi.prototype.getFirmwareVersion = function () {
   return this._version;
+};
+
+/**
+ * Return the ip address of the host machine.
+ * @return {null|String}
+ * @author Richard Waltman (@retiutut)
+ */
+Wifi.prototype.getLocalIPAddress = function () {
+  if (isWin) {
+    console.log(os.networkInterfaces());
+    if (os.networkInterfaces().hasOwnProperty('Ethernet')) {
+      console.log("ETHERNET FOUND!!!!");
+    } else if (os.networkInterfaces().hasOwnProperty('WiFi')){
+      console.log("WIFI FOUND!!!!");
+    }
+    return ip.address("Ethernet", "ipv4");
+  } else {
+    return ip.address();
+  }
 };
 
 /**
@@ -984,13 +1004,10 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
  * Used for client connecting to
  * @private
  */
-Wifi.prototype._connectSocket = function () {
-  console.log(os.networkInterfaces()); 
-
-
+Wifi.prototype._connectSocket = function () { 
   if (this.options.protocol === 'udp') {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address("Ethernet", "ipv4"),
+      ip: this.getLocalIPAddress(),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortUDP(),
       delimiter: false,
@@ -999,7 +1016,7 @@ Wifi.prototype._connectSocket = function () {
     });
   } else {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address("Ethernet", "ipv4"),
+      ip: this.getLocalIPAddress(),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortTCP(),
       delimiter: false,
@@ -1091,7 +1108,7 @@ Wifi.prototype.wifiInitServer = function () {
   });
 
   this.wifiServerUDP.bind({
-    address: ip.address("Ethernet", "ipv4")
+    address: this.getLocalIPAddress()
   });
 };
 

@@ -1,3 +1,9 @@
+# v0.4.3
+
+### Bug Fixes
+
+* Get valid IP address of host computer using Ethernet or WiFi
+
 # v0.4.2
 
 ### Examples

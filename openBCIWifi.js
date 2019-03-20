@@ -8,6 +8,7 @@ const obciUtils = OpenBCIUtilities.Utilities;
 const k = OpenBCIUtilities.Constants;
 const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
+const os = require('os');
 const ip = require('ip');
 const Client = require('node-ssdp').Client;
 const net = require('net');
@@ -984,9 +985,12 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
  * @private
  */
 Wifi.prototype._connectSocket = function () {
+  console.log(os.networkInterfaces()); 
+
+
   if (this.options.protocol === 'udp') {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address(),
+      ip: ip.address("Ethernet", "ipv4"),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortUDP(),
       delimiter: false,
@@ -995,7 +999,7 @@ Wifi.prototype._connectSocket = function () {
     });
   } else {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address(),
+      ip: ip.address("Ethernet", "ipv4"),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortTCP(),
       delimiter: false,
@@ -1087,7 +1091,7 @@ Wifi.prototype.wifiInitServer = function () {
   });
 
   this.wifiServerUDP.bind({
-    address: ip.address()
+    address: ip.address("Ethernet", "ipv4")
   });
 };
 

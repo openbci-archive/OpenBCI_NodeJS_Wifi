@@ -23,7 +23,8 @@
     "ip": "^1.1.5",
     "lodash": "^4.16.6",
     "node-ssdp": "^3.2.1",
-    "openbci-utilities": "^0.2.7",
+    "@openbci/utilities": "^1.0.0",
+    "os": "^0.1.1",
     "safe-buffer": "^5.1.1",
     "xstream": "^11.7.0"
   },

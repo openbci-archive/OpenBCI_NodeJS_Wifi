@@ -3,9 +3,9 @@ const EventEmitter = require('events').EventEmitter;
 const _ = require('lodash');
 const util = require('util');
 // Local imports
-const OpenBCIUtilities = require('openbci-utilities');
-const obciUtils = OpenBCIUtilities.Utilities;
-const k = OpenBCIUtilities.Constants;
+const OpenBCIUtilities = require('@openbci/utilities');
+const obciUtils = require('@openbci/utilities/dist/utilities');
+const k = require('@openbci/utilities/dist/constants');
 const obciDebug = OpenBCIUtilities.Debug;
 const clone = require('clone');
 const os = require('os');

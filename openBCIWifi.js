@@ -421,13 +421,14 @@ Wifi.prototype.getFirmwareVersion = function () {
  */
 Wifi.prototype.getLocalIPAddress = function () {
   if (isWin) {
-    console.log(os.networkInterfaces());
+    if (this.options.verbose) console.log(os.networkInterfaces());
     if (os.networkInterfaces().hasOwnProperty('Ethernet')) {
-      console.log("ETHERNET FOUND!!!!");
-    } else if (os.networkInterfaces().hasOwnProperty('WiFi')){
-      console.log("WIFI FOUND!!!!");
+      return ip.address("Ethernet", "ipv4");
+    } else if (os.networkInterfaces().hasOwnProperty('Wi-Fi')){
+      return ip.address("Wi-Fi", "ipv4");
+    } else {
+      return ip.address();
     }
-    return ip.address("Ethernet", "ipv4");
   } else {
     return ip.address();
   }

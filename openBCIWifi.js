@@ -1005,7 +1005,7 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
  * Used for client connecting to
  * @private
  */
-Wifi.prototype._connectSocket = function () { 
+Wifi.prototype._connectSocket = function () {
   if (this.options.protocol === 'udp') {
     return this.post(`/${this.options.protocol}`, {
       ip: this.getLocalIPAddress(),

@@ -2,7 +2,7 @@
 
 ### Bug Fixes
 
-* Get valid IP address of host computer using Ethernet or WiFi
+* Get IP address on Windows machines using valid network interface
 
 # v0.4.2
 

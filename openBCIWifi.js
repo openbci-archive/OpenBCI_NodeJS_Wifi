@@ -18,7 +18,6 @@ const Buffer = require('safe-buffer').Buffer;
 const dgram = require('dgram');
 const isWin = process.platform === "win32";
 
-const wifiOutputModeJSON = 'json';
 const wifiOutputModeRaw = 'raw';
 const wifiOutputProtocolUDP = 'udp';
 const wifiOutputProtocolTCP = 'tcp';
@@ -73,7 +72,7 @@ function Wifi (options) {
     return new Wifi(options);
   }
 
-  options = (typeof options !== 'function') && options || {};
+  options = ((typeof options !== 'function') && options) || {};
   let opts = {};
 
   /** Configuring Options */
@@ -178,7 +177,7 @@ Wifi.prototype.bufferRawDataPackets = function (rawDataPackets) {
     _.forEach(rawDataPackets, (newRDP) => {
       let found = false;
       _.forEach(this.internalRawDataPackets, (oldRDP) => {
-        if (!found && bufferEqual(newRDP, oldRDP)) {
+        if (!found && bufferEqual(new Buffer(newRDP), new Buffer(oldRDP))) {
           out.push(oldRDP);
           found = true;
         }
@@ -267,7 +266,6 @@ Wifi.prototype.channelSet = function (channelNumber, powerDown, gain, inputType,
  * @author AJ Keller (@aj-ptw)
  */
 Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputApplied) {
-  let arrayOfCommands = [];
   return new Promise((resolve, reject) => {
     k.getImpedanceSetter(channelNumber, pInputApplied, nInputApplied)
       .then((val) => {
@@ -295,7 +293,7 @@ Wifi.prototype.impedanceSet = function (channelNumber, pInputApplied, nInputAppl
  */
 Wifi.prototype.connect = function (o) {
   return new Promise((resolve, reject) => {
-    let ipAddress = "";
+    let ipAddress = '';
     if (o.hasOwnProperty('ipAddress')) {
       ipAddress = o.ipAddress;
     } else if (o.hasOwnProperty('shieldName')) {
@@ -393,7 +391,6 @@ Wifi.prototype.isSearching = function () {
 Wifi.prototype.isStreaming = function () {
   return this._streaming;
 };
-
 
 /**
  * @description Get the current board type
@@ -578,7 +575,7 @@ Wifi.prototype.setSampleRate = function (sampleRate) {
       })
       .catch((err) => {
         reject(err);
-      })
+      });
   });
 };
 
@@ -601,7 +598,7 @@ Wifi.prototype.syncSampleRate = function () {
       })
       .catch((err) => {
         reject(err);
-      })
+      });
   });
 };
 
@@ -755,7 +752,6 @@ Wifi.prototype.softReset = function () {
  */
 Wifi.prototype.eraseWifiCredentials = function () {
   return new Promise((resolve, reject) => {
-    let result = "";
     this.delete('/wifi')
       .then((res) => {
         if (this.options.verbose) console.log(res);
@@ -767,7 +763,7 @@ Wifi.prototype.eraseWifiCredentials = function () {
       .catch((err) => {
         if (this.options.verbose) console.log(err);
         reject(err);
-      })
+      });
   });
 };
 
@@ -781,7 +777,7 @@ Wifi.prototype.eraseWifiCredentials = function () {
  */
 Wifi.prototype.streamStart = function () {
   return new Promise((resolve, reject) => {
-    if (this.isStreaming()) return reject('Error [.streamStart()]: Already streaming');
+    if (this.isStreaming()) return reject(Error('Error [.streamStart()]: Already streaming'));
     this._streaming = true;
     this._lastPacketArrival = 0;
     this.write(k.OBCIStreamStart)
@@ -803,7 +799,7 @@ Wifi.prototype.streamStart = function () {
  */
 Wifi.prototype.streamStop = function () {
   return new Promise((resolve, reject) => {
-    if (!this.isStreaming()) return reject('Error [.streamStop()]: No stream to stop');
+    if (!this.isStreaming()) return reject(Error('Error [.streamStop()]: No stream to stop'));
     this._streaming = false;
     this.write(k.OBCIStreamStop)
       .then(() => {
@@ -864,7 +860,7 @@ Wifi.prototype.syncInfo = function (o) {
     .catch((err) => {
       console.log(err);
       return Promise.reject(err);
-    })
+    });
 };
 
 /**
@@ -884,15 +880,15 @@ Wifi.prototype.write = function (data) {
         }
       }
       if (this.options.debug) obciDebug.debugBytes('>>>', data);
-      this.post('/command', {'command': data.toString()})
+      this.post('/command', { 'command': data.toString() })
         .then((res) => {
           resolve(res.message);
         })
         .catch((err) => {
           reject(err);
-        })
+        });
     } else {
-      reject('ipAddress is not set. Please call connect with ip address of wifi shield');
+      reject(Error('ipAddress is not set. Please call connect with ip address of wifi shield'));
     }
   });
 };
@@ -1081,10 +1077,10 @@ Wifi.prototype.wifiInitServer = function () {
       this._processBytes(data);
     });
     socket.on('error', (err) => {
-      if (this.options.verbose) console.log('SSDP:',err);
+      if (this.options.verbose) console.log('SSDP:', err);
     });
   }).listen();
-  if (this.options.verbose) console.log("TCP: on port: ", this.wifiGetLocalPortTCP());
+  if (this.options.verbose) console.log('TCP: on port: ', this.wifiGetLocalPortTCP());
 
   this.wifiServerUDP = dgram.createSocket('udp4');
 
@@ -1148,7 +1144,6 @@ Wifi.prototype._processResponse = function (res) {
       }
     });
   });
-
 };
 
 Wifi.prototype._delete = function (host, path) {
@@ -1206,7 +1201,7 @@ Wifi.prototype._get = function (host, path) {
     });
 
     req.end();
-  })
+  });
 };
 
 /**

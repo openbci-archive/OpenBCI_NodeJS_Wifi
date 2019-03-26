@@ -1,8 +1,24 @@
-# v0.4.3
+# v1.0.2
 
 ### Bug Fixes
 
-* Get IP address on Windows machines using valid network interface
+* Get host IP address on Windows machines using valid network interface
+
+# v1.0.1
+
+### Bug Fixes
+
+* Updated references to .Debug and .Utilities to .debug and .utilities
+
+# v1.0.0
+
+### Breaking Changes
+
+* Name of package is now @openbci/wifi
+
+### Enhancements
+
+* Include node 10 in testing
 
 # v0.4.2
 

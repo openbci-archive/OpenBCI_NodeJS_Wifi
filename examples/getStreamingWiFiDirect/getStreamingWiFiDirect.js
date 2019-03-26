@@ -1,4 +1,4 @@
-/*jslint es6*/
+/* jslint es6 */
 /**
  * This is an example from the readme.md
  * On windows you should run with PowerShell not git bash.
@@ -14,14 +14,14 @@
 const OpenBCIConsts = require('@openbci/utilities/dist/constants');
 const OpenBCIWifi = require("../../openBCIWifi");
 
-const deviceAddr = "10.0.1.3";
+const deviceAddr = '10.0.1.3';
 
 const wifi = new OpenBCIWifi({
-  debug: false,                   // Pretty print bytes
-  verbose: false,                 // Verbose output
+  debug: false, // Pretty print bytes
+  verbose: false, // Verbose output
   sendCounts: false,
   latency: 16667,
-  protocol: "tcp",                // or "udp"
+  protocol: 'tcp', // or "udp"
   burst: true
 });
 
@@ -45,7 +45,6 @@ const sampleFunc = (sample) => {
           droppedPacketArray.push(droppedPackets);
           sampleRateArray.push(counter);
 
-
           const dpSum = droppedPacketArray.reduce(sum, 0);
           const srSum = sampleRateArray.reduce(sum, 0);
 
@@ -56,7 +55,6 @@ const sampleFunc = (sample) => {
 
           droppedPackets = 0;
           counter = 0;
-
         }, 1000);
       }
 
@@ -85,10 +83,10 @@ wifi.on(OpenBCIConsts.OBCIEmitterSample, sampleFunc);
 // wifi.on(OpenBCIConsts.OBCIEmitterRawDataPacket, console.log);
 
 wifi.connect({
-    sampleRate: 200,
-    streamStart: true,
-    ipAddress: deviceAddr
-  })
+  sampleRate: 200,
+  streamStart: true,
+  ipAddress: deviceAddr
+})
   .then(() => {
     MAX_SAMPLE_NUMBER = wifi.getNumberOfChannels() === 4 ? 200 : 255;
   })
@@ -99,31 +97,31 @@ wifi.connect({
 
 function exitHandler (options, err) {
   if (options.cleanup) {
-    if (options.verbose) console.log("clean");
+    if (options.verbose) console.log('clean');
     /** Do additional clean up here */
     if (wifi.isConnected()) wifi.disconnect().catch(console.log);
 
-    wifi.removeAllListeners("rawDataPacket");
-    wifi.removeAllListeners("sample");
+    wifi.removeAllListeners('rawDataPacket');
+    wifi.removeAllListeners('sample');
     wifi.destroy();
-    
+
     if (sampleRateCounterInterval) clearInterval(sampleRateCounterInterval);
   }
 
   if (err) console.log(err.stack);
-  
+
   if (options.exit) {
-    if (options.verbose) console.log("exit");
+    if (options.verbose) console.log('exit');
 
     if (wifi.isStreaming()) {
       const _t = setTimeout(() => {
-        console.log("timeout");
+        console.log('timeout');
         process.exit(0);
       }, 1000);
 
       wifi.streamStop()
         .then(() => {
-          console.log("stream stopped");
+          console.log('stream stopped');
           if (_t) clearTimeout(_t);
           process.exit(0);
         }).catch((err) => {
@@ -136,28 +134,28 @@ function exitHandler (options, err) {
   }
 }
 
-if (process.platform === "win32") {
-  const rl = require("readline").createInterface({
+if (process.platform === 'win32') {
+  const rl = require('readline').createInterface({
     input: process.stdin,
     output: process.stdout
   });
 
-  rl.on("SIGINT", function () {
-    process.emit("SIGINT");
+  rl.on('SIGINT', function () {
+    process.emit('SIGINT');
   });
 }
 
 // do something when app is closing
-process.on("exit", exitHandler.bind(null, {
+process.on('exit', exitHandler.bind(null, {
   cleanup: true
 }));
 
 // catches ctrl+c event
-process.on("SIGINT", exitHandler.bind(null, {
+process.on('SIGINT', exitHandler.bind(null, {
   exit: true
 }));
 
 // catches uncaught exceptions
-process.on("uncaughtException", exitHandler.bind(null, {
+process.on('uncaughtException', exitHandler.bind(null, {
   exit: true
 }));

@@ -1,11 +1,11 @@
 {
-  "name": "openbci-wifi",
-  "version": "0.4.3",
+  "name": "@openbci/wifi",
+  "version": "1.0.2",
   "description": "The official SDK for the OpenBCI/Push The World Wifi Shield connected to either OpenBCI Cytons or Ganglions.",
   "main": "openBCIWifi.js",
   "scripts": {
     "test": "semistandard | snazzy && mocha test",
-    "test-cov": "istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec && codecov"
+    "test-cov": "semistandard | snazzy && istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec && codecov"
   },
   "keywords": [
     "openbci",
@@ -18,22 +18,22 @@
   "license": "MIT",
   "dependencies": {
     "buffer-equal": "^1.0.0",
-    "clone": "^2.0.0",
+    "clone": "^2.1.2",
     "fs": "0.0.1-security",
     "ip": "^1.1.5",
-    "lodash": "^4.16.6",
+    "lodash": "^4.17.11",
     "node-ssdp": "^3.2.1",
     "@openbci/utilities": "^1.0.0",
     "os": "^0.1.1",
     "safe-buffer": "^5.1.1",
-    "xstream": "^11.7.0"
+    "xstream": "^11.10.0"
   },
   "directories": {
     "test": "test"
   },
   "devDependencies": {
     "bluebird": "3.4.6",
-    "chai": "^4.0.0",
+    "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "codecov": "^2.2.0",
     "dirty-chai": "^2.0.1",
@@ -69,5 +69,8 @@
       "expect",
       "should"
     ]
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

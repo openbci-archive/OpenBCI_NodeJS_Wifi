@@ -1,7 +1,7 @@
 /* jslint es6 */
 'use strict';
 const fs = require('fs');
-const OBCIConst = require('@openbci/utilities').constants;
+const OBCIConst = require('@openbci/utilities/dist/constants');
 const Wifi = require('../../openBCIWifi');
 const xs = require('xstream').Stream;
 

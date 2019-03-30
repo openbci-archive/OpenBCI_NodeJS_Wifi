@@ -4,9 +4,9 @@ const _ = require('lodash');
 const util = require('util');
 // Local imports
 const OpenBCIUtilities = require('@openbci/utilities');
-const obciUtils = require('@openbci/utilities/dist/utilities');
-const k = require('@openbci/utilities/dist/constants');
-const obciDebug = OpenBCIUtilities.Debug;
+const obciUtils = OpenBCIUtilities.utilities;
+const k = OpenBCIUtilities.constants;
+const obciDebug = OpenBCIUtilities.debug;
 const clone = require('clone');
 const os = require('os');
 const ip = require('ip');

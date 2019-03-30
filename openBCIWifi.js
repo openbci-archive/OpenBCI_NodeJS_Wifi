@@ -8,6 +8,7 @@ const obciUtils = OpenBCIUtilities.utilities;
 const k = OpenBCIUtilities.constants;
 const obciDebug = OpenBCIUtilities.debug;
 const clone = require('clone');
+const os = require('os');
 const ip = require('ip');
 const Client = require('node-ssdp').Client;
 const net = require('net');
@@ -15,6 +16,7 @@ const http = require('http');
 const bufferEqual = require('buffer-equal');
 const Buffer = require('safe-buffer').Buffer;
 const dgram = require('dgram');
+const isWin = process.platform === "win32";
 
 const wifiOutputModeRaw = 'raw';
 const wifiOutputProtocolUDP = 'udp';
@@ -407,6 +409,26 @@ Wifi.prototype.getBoardType = function () {
  */
 Wifi.prototype.getFirmwareVersion = function () {
   return this._version;
+};
+
+/**
+ * Return the ip address of the host machine.
+ * @return {null|String}
+ * @author Richard Waltman (@retiutut)
+ */
+Wifi.prototype.getLocalIPAddress = function () {
+  if (isWin) {
+    if (this.options.verbose) console.log(os.networkInterfaces());
+    if (os.networkInterfaces().hasOwnProperty('Ethernet')) {
+      return ip.address("Ethernet", "ipv4");
+    } else if (os.networkInterfaces().hasOwnProperty('Wi-Fi')){
+      return ip.address("Wi-Fi", "ipv4");
+    } else {
+      return ip.address();
+    }
+  } else {
+    return ip.address();
+  }
 };
 
 /**
@@ -982,7 +1004,7 @@ Wifi.prototype._finalizeNewSampleForDaisy = function (sampleObject) {
 Wifi.prototype._connectSocket = function () {
   if (this.options.protocol === 'udp') {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address(),
+      ip: this.getLocalIPAddress(),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortUDP(),
       delimiter: false,
@@ -991,7 +1013,7 @@ Wifi.prototype._connectSocket = function () {
     });
   } else {
     return this.post(`/${this.options.protocol}`, {
-      ip: ip.address(),
+      ip: this.getLocalIPAddress(),
       output: this.curOutputMode,
       port: this.wifiGetLocalPortTCP(),
       delimiter: false,
@@ -1083,7 +1105,7 @@ Wifi.prototype.wifiInitServer = function () {
   });
 
   this.wifiServerUDP.bind({
-    address: ip.address()
+    address: this.getLocalIPAddress()
   });
 };
 

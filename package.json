@@ -1,6 +1,6 @@
 {
   "name": "@openbci/wifi",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "The official SDK for the OpenBCI/Push The World Wifi Shield connected to either OpenBCI Cytons or Ganglions.",
   "main": "openBCIWifi.js",
   "scripts": {
@@ -17,13 +17,14 @@
   "author": "AJ Keller <aj@pushtheworld.us> (www.openbci.com)",
   "license": "MIT",
   "dependencies": {
-    "@openbci/utilities": "^1.0.0",
     "buffer-equal": "^1.0.0",
     "clone": "^2.1.2",
     "fs": "0.0.1-security",
     "ip": "^1.1.5",
     "lodash": "^4.17.11",
     "node-ssdp": "^3.2.1",
+    "@openbci/utilities": "^1.0.0",
+    "os": "^0.1.1",
     "safe-buffer": "^5.1.1",
     "xstream": "^11.10.0"
   },

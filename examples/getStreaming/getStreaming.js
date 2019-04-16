@@ -10,9 +10,9 @@
  *   do `npm install`
  *   then `npm start`
  */
-"use strict";
+'use strict';
 const OBCIConsts = require('@openbci/utilities').constants;
-const OBCIWifi = require("../../openBCIWifi");
+const OBCIWifi = require('../../openBCIWifi');
 
 const wifi = new OBCIWifi({
   debug: false, // Pretty print bytes

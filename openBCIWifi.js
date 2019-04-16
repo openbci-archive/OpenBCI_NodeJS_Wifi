@@ -16,7 +16,7 @@ const http = require('http');
 const bufferEqual = require('buffer-equal');
 const Buffer = require('safe-buffer').Buffer;
 const dgram = require('dgram');
-const isWin = process.platform === "win32";
+const isWin = process.platform === 'win32';
 
 const wifiOutputModeRaw = 'raw';
 const wifiOutputProtocolUDP = 'udp';
@@ -420,9 +420,9 @@ Wifi.prototype.getLocalIPAddress = function () {
   if (isWin) {
     if (this.options.verbose) console.log(os.networkInterfaces());
     if (os.networkInterfaces().hasOwnProperty('Ethernet')) {
-      return ip.address("Ethernet", "ipv4");
-    } else if (os.networkInterfaces().hasOwnProperty('Wi-Fi')){
-      return ip.address("Wi-Fi", "ipv4");
+      return ip.address('Ethernet', 'ipv4');
+    } else if (os.networkInterfaces().hasOwnProperty('Wi-Fi')) {
+      return ip.address('Wi-Fi', 'ipv4');
     } else {
       return ip.address();
     }

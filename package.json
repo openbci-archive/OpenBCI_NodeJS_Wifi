@@ -1,6 +1,6 @@
 {
   "name": "@openbci/wifi",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "The official SDK for the OpenBCI/Push The World Wifi Shield connected to either OpenBCI Cytons or Ganglions.",
   "main": "openBCIWifi.js",
   "scripts": {
@@ -35,10 +35,10 @@
     "bluebird": "3.4.6",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "codecov": "^2.2.0",
+    "codecov": "^3.5.0",
     "dirty-chai": "^2.0.1",
     "istanbul": "^0.4.4",
-    "mocha": "^3.0.2",
+    "mocha": "^6.1.4",
     "sandboxed-module": "^2.0.3",
     "semistandard": "^11.0.0",
     "sinon": "^2.3.7",
